@@ -1,0 +1,16 @@
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+fraud:
+  security:
+    step-up:
+      expose-verification-url: false
+      delivery-channel: EMAIL
+      issue-window: 10m
+      max-issue-attempts: 3
+      verify-window: 10m
+      max-verify-failures: 5
+      lockout-duration: 15m

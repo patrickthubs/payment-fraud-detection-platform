@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:fraud_platform;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:19092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+  data:
+    redis:
+      host: localhost
+      port: 16379
+      repositories:
+        enabled: false
+
+fraud:
+  security:
+    step-up:
+      token-validity: 5m
+      session-validity: 10m
+      expose-verification-url: true
+      delivery-channel: DEVELOPMENT_LINK
+      from-address: no-reply@fraud-platform.test
+      subject-prefix: "[Fraud Platform Test]"
+      issue-window: 10m
+      max-issue-attempts: 3
+      verify-window: 10m
+      max-verify-failures: 5
+      lockout-duration: 15m
+  events:
+    assessment-topic: fraud-assessment-completed
+    payment-status-topic: payment-status-changed
+    notification-topic: fraud-notifications
+  outbox:
+    enabled: false
+    batch-size: 50
+    max-attempts: 5
+    dispatch-delay-ms: 15000
+    retry-delay-ms: 30000
+  scoring:
+    challenge-threshold: 45
+    hold-threshold: 65
+    decline-threshold: 85

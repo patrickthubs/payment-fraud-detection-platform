@@ -1,0 +1,15 @@
+# IntelliJ
+.idea/
+
+# VS Code
+.vscode/
+
+# Java
+backend/target/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store

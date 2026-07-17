@@ -1,0 +1,92 @@
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: payment-fraud-backend
+
+spring:
+  application:
+    name: payment-fraud-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15432/fraud_platform}
+    username: ${DB_USERNAME:fraud_user}
+    password: ${DB_PASSWORD:fraud_pass}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:16379}
+      repositories:
+        enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:false}
+
+fraud:
+  security:
+    step-up:
+      token-validity: 5m
+      session-validity: 10m
+      expose-verification-url: false
+      delivery-channel: EMAIL
+      from-address: no-reply@fraud-platform.internal
+      subject-prefix: "[Fraud Platform]"
+      issue-window: 10m
+      max-issue-attempts: 3
+      verify-window: 10m
+      max-verify-failures: 5
+      lockout-duration: 15m
+  events:
+    assessment-topic: fraud-assessment-completed
+    payment-status-topic: payment-status-changed
+    notification-topic: fraud-notifications
+  outbox:
+    enabled: true
+    batch-size: 50
+    max-attempts: 5
+    dispatch-delay-ms: 15000
+    retry-delay-ms: 30000
+  scoring:
+    challenge-threshold: 45
+    hold-threshold: 65
+    decline-threshold: 85
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: /swagger-ui.html
