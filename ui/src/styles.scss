@@ -128,7 +128,6 @@ a {
 }
 
 .page-header {
-  grid-template-columns: 1.4fr 1fr;
   align-items: end;
 }
 
@@ -155,16 +154,13 @@ h2 {
   font-size: 1.6rem;
 }
 
-.page-copy,
-.detail-copy,
-.lede {
+.detail-copy {
   color: var(--text-muted);
   line-height: 1.6;
 }
 
 .metric-grid,
 .content-grid,
-.metric-strip,
 .filter-grid,
 .form-grid,
 .definition-grid,
@@ -199,8 +195,7 @@ h2 {
 .metric-tile span,
 .timeline__item span,
 label span,
-dt,
-.metric-strip span {
+dt {
   color: var(--text-muted);
   font-size: 0.86rem;
 }
@@ -393,20 +388,26 @@ button:focus {
 .login-page {
   min-height: 100vh;
   grid-template-columns: 1.2fr 0.9fr;
-  padding: 1.5rem;
+  gap: 1.75rem;
+  padding: 1.75rem;
   align-items: stretch;
 }
 
 .login-page__story,
 .login-page__panel {
   align-content: start;
-  gap: 1.2rem;
+  gap: 1.35rem;
+  padding: 1.6rem;
 }
 
-.metric-strip {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: auto;
+.login-page__story {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    radial-gradient(circle at top left, rgba(119, 224, 198, 0.12), transparent 42%);
+}
+
+.login-page__story h1 {
+  max-width: 11ch;
 }
 
 .operator-list {
@@ -447,8 +448,7 @@ button:focus {
   }
 
   .form-grid--three,
-  .definition-grid,
-  .metric-strip {
+  .definition-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -460,8 +460,7 @@ button:focus {
   }
 
   .form-grid--three,
-  .definition-grid,
-  .metric-strip {
+  .definition-grid {
     grid-template-columns: 1fr;
   }
 
@@ -469,6 +468,6 @@ button:focus {
   .detail-panel,
   .login-page__panel,
   .login-page__story {
-    padding: 0.95rem;
+    padding: 1rem;
   }
 }

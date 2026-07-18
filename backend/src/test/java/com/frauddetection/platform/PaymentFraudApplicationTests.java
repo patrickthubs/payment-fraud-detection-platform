@@ -43,6 +43,36 @@ class PaymentFraudApplicationTests {
     }
 
     @Test
+    void operatorCanCreateCookieSessionWithoutPersistingBasicCredentials() throws IOException, InterruptedException {
+        HttpClient sessionClient = sessionHttpClient();
+        HttpResponse<String> csrfResponse = sendForBody(
+            sessionClient,
+            request("/api/v1/auth/csrf").GET().build()
+        );
+        assertThat(HttpStatus.valueOf(csrfResponse.statusCode())).isEqualTo(HttpStatus.OK);
+        String csrfToken = extractJsonValue(csrfResponse.body(), "token");
+
+        HttpResponse<String> loginResponse = sendForBody(
+            sessionClient,
+            request("/api/v1/auth/session")
+                .header("Content-Type", "application/json")
+                .header("X-XSRF-TOKEN", csrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                    {"username":"analyst.one","password":"local-analyst-2026"}
+                    """))
+                .build()
+        );
+        assertThat(HttpStatus.valueOf(loginResponse.statusCode())).isEqualTo(HttpStatus.OK);
+        assertThat(loginResponse.body()).contains("analyst.one").doesNotContain("local-analyst-2026");
+
+        HttpStatus authenticatedStatus = send(
+            sessionClient,
+            request("/api/v1/fraud-operations/summary").GET().build()
+        );
+        assertThat(authenticatedStatus).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
     void anonymousFraudCaseRequestIsRejected() throws IOException, InterruptedException {
         HttpStatus status = send(request("/api/v1/fraud-cases").GET().build());
         assertThat(status).isEqualTo(HttpStatus.UNAUTHORIZED);

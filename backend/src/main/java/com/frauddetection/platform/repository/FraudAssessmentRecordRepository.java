@@ -5,10 +5,13 @@ import com.frauddetection.platform.model.RiskDecision;
 import com.frauddetection.platform.model.VelocitySource;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface FraudAssessmentRecordRepository extends JpaRepository<FraudAssessmentRecordEntity, UUID> {
+
+    Optional<FraudAssessmentRecordEntity> findByIdempotencyKey(String idempotencyKey);
 
     @Query("select count(distinct record.customerId) from FraudAssessmentRecordEntity record")
     long countDistinctCustomerIds();

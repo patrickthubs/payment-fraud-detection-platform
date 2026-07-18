@@ -13,12 +13,8 @@ import { OperationsStore } from '../../store/operations.store';
       <header class="page-header">
         <div>
           <p class="eyebrow">Outbound operations</p>
-          <h1>Watch delivery pressure, failed events, and replay posture from one control page.</h1>
+          <h1>Outbound operations</h1>
         </div>
-        <p class="page-copy">
-          This page keeps the operational lens narrow: event delivery health first, historical
-          replay posture second.
-        </p>
       </header>
 
       @if (store.error()) {
@@ -37,17 +33,14 @@ import { OperationsStore } from '../../store/operations.store';
         <article class="metric-tile">
           <span>Pending outbound</span>
           <strong>{{ store.summary()?.outboundDeliverySummary?.pendingCount ?? 0 }}</strong>
-          <small>Waiting for dispatch or retry.</small>
         </article>
         <article class="metric-tile">
           <span>Delivered outbound</span>
           <strong>{{ store.summary()?.outboundDeliverySummary?.deliveredCount ?? 0 }}</strong>
-          <small>Successfully dispatched platform events.</small>
         </article>
         <article class="metric-tile">
           <span>Failed outbound</span>
           <strong>{{ store.summary()?.outboundDeliverySummary?.failedCount ?? 0 }}</strong>
-          <small>Failures needing operator attention.</small>
         </article>
       </section>
 

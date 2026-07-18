@@ -18,7 +18,7 @@ cd payment-fraud-detection-platform
 ## 2. Start Infrastructure
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis kafka mailpit
 ```
 
 Expected local services:
@@ -33,7 +33,7 @@ Expected local services:
 
 ```bash
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 The API should come up on `http://localhost:8080`.

@@ -12,12 +12,8 @@ import { CasesStore } from '../../store/cases.store';
       <header class="page-header">
         <div>
           <p class="eyebrow">Review queue</p>
-          <h1>Filter the backlog, then open only the case that needs judgment.</h1>
+          <h1>Review cases</h1>
         </div>
-        <p class="page-copy">
-          The queue stays table-first for scanning speed, with a focused detail view for the active
-          case instead of a maze of small cards.
-        </p>
       </header>
 
       <form class="filter-grid" [formGroup]="form" (ngSubmit)="applyFilters()">
@@ -124,7 +120,7 @@ import { CasesStore } from '../../store/cases.store';
             <div class="action-stack">
               <div class="section-heading">
                 <p class="eyebrow">Case actions</p>
-                <h3>Move the review forward</h3>
+                <h3>Actions</h3>
               </div>
 
               @if (store.actionMessage()) {
@@ -160,7 +156,7 @@ import { CasesStore } from '../../store/cases.store';
               </form>
             </div>
           } @else {
-            <p class="detail-copy">Select a case from the queue to inspect the latest review trail.</p>
+            <p class="detail-copy">Select a case to inspect it.</p>
           }
         </aside>
       </section>

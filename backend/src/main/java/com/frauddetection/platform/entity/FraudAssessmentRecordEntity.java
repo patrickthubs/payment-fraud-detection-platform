@@ -41,6 +41,27 @@ public class FraudAssessmentRecordEntity {
     @Column(name = "triggered_factor_codes", nullable = false, length = 500)
     private String triggeredFactorCodes;
 
+    @Column(name = "scoring_profile_id")
+    private UUID scoringProfileId;
+
+    @Column(name = "scoring_profile_version", nullable = false)
+    private int scoringProfileVersion;
+
+    @Column(name = "ruleset_version", nullable = false, length = 80)
+    private String rulesetVersion;
+
+    @Column(name = "input_snapshot", nullable = false, length = 12000)
+    private String inputSnapshot;
+
+    @Column(name = "factor_details", nullable = false, length = 12000)
+    private String factorDetails;
+
+    @Column(name = "idempotency_key", unique = true, length = 120)
+    private String idempotencyKey;
+
+    @Column(name = "request_hash", length = 64)
+    private String requestHash;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -58,6 +79,30 @@ public class FraudAssessmentRecordEntity {
         String triggeredFactorCodes,
         Instant createdAt
     ) {
+        this(
+            id, paymentId, customerId, riskScore, decision, velocitySource, summary, triggeredFactorCodes,
+            null, 0, "rules-v1", "{}", "[]", null, null, createdAt
+        );
+    }
+
+    public FraudAssessmentRecordEntity(
+        UUID id,
+        String paymentId,
+        String customerId,
+        int riskScore,
+        RiskDecision decision,
+        VelocitySource velocitySource,
+        String summary,
+        String triggeredFactorCodes,
+        UUID scoringProfileId,
+        int scoringProfileVersion,
+        String rulesetVersion,
+        String inputSnapshot,
+        String factorDetails,
+        String idempotencyKey,
+        String requestHash,
+        Instant createdAt
+    ) {
         this.id = id;
         this.paymentId = paymentId;
         this.customerId = customerId;
@@ -66,6 +111,13 @@ public class FraudAssessmentRecordEntity {
         this.velocitySource = velocitySource;
         this.summary = summary;
         this.triggeredFactorCodes = triggeredFactorCodes;
+        this.scoringProfileId = scoringProfileId;
+        this.scoringProfileVersion = scoringProfileVersion;
+        this.rulesetVersion = rulesetVersion;
+        this.inputSnapshot = inputSnapshot;
+        this.factorDetails = factorDetails;
+        this.idempotencyKey = idempotencyKey;
+        this.requestHash = requestHash;
         this.createdAt = createdAt;
     }
 
@@ -99,6 +151,34 @@ public class FraudAssessmentRecordEntity {
 
     public String getTriggeredFactorCodes() {
         return triggeredFactorCodes;
+    }
+
+    public UUID getScoringProfileId() {
+        return scoringProfileId;
+    }
+
+    public int getScoringProfileVersion() {
+        return scoringProfileVersion;
+    }
+
+    public String getRulesetVersion() {
+        return rulesetVersion;
+    }
+
+    public String getInputSnapshot() {
+        return inputSnapshot;
+    }
+
+    public String getFactorDetails() {
+        return factorDetails;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public String getRequestHash() {
+        return requestHash;
     }
 
     public Instant getCreatedAt() {

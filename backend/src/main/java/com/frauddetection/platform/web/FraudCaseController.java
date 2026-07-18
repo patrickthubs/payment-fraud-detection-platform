@@ -14,6 +14,8 @@ import com.frauddetection.platform.service.AuthenticatedOperatorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -61,7 +63,9 @@ public class FraudCaseController {
         @RequestParam(required = false) String paymentId,
         @RequestParam(required = false) String customerId,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdFrom,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "100") int size
     ) {
         return fraudCaseQueryService.findAll(buildCriteria(
             status,
@@ -74,7 +78,7 @@ public class FraudCaseController {
             customerId,
             createdFrom,
             createdTo
-        ));
+        ), page, size);
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
@@ -89,7 +93,8 @@ public class FraudCaseController {
         @RequestParam(required = false) String paymentId,
         @RequestParam(required = false) String customerId,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdFrom,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo,
+        @RequestParam(defaultValue = "1000") @Min(1) @Max(10000) int limit
     ) {
         String csv = fraudCaseQueryService.export(buildCriteria(
             status,
@@ -102,7 +107,7 @@ public class FraudCaseController {
             customerId,
             createdFrom,
             createdTo
-        ));
+        ), limit);
 
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=fraud-case-export.csv")

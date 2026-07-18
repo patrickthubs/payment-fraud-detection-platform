@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestHeader;
 import com.frauddetection.platform.service.AuthenticatedOperatorService;
 
 @RestController
@@ -62,8 +63,11 @@ public class FraudAssessmentController {
         summary = "Assess a payment for fraud risk",
         description = "Scores the incoming payment, persists the latest payment state, and creates a review case when the outcome requires analyst attention."
     )
-    public PaymentRiskAssessmentResponse assess(@Valid @RequestBody PaymentRiskAssessmentRequest request) {
-        FraudAssessmentResult result = fraudAssessmentService.assess(request);
+    public PaymentRiskAssessmentResponse assess(
+        @Valid @RequestBody PaymentRiskAssessmentRequest request,
+        @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        FraudAssessmentResult result = fraudAssessmentService.assess(request, idempotencyKey);
         FraudRiskAssessment assessment = result.assessment();
         List<RiskFactorView> factors = assessment.triggeredFactors().stream()
             .map(factor -> new RiskFactorView(factor.code(), factor.weight(), factor.detail()))

@@ -1,0 +1,5 @@
+fraud:
+  security:
+    demo-users-enabled: true
+    machine-auth:
+      mode: basic

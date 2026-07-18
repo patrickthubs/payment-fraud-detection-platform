@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthStateService } from '../auth/auth-state.service';
 
@@ -44,16 +44,18 @@ import { AuthStateService } from '../auth/auth-state.service';
 })
 export class AppShellComponent {
   protected readonly authState = inject(AuthStateService);
+  private readonly router = inject(Router);
 
   protected readonly navItems = [
     { label: 'Overview', path: '/overview' },
     { label: 'Cases', path: '/cases' },
     { label: 'Payments', path: '/payments' },
     { label: 'Simulation Lab', path: '/simulations' },
+    { label: 'Decision Quality', path: '/quality' },
     { label: 'Operations', path: '/operations' }
   ] as const;
 
   protected logout(): void {
-    this.authState.logout();
+    this.authState.logout().subscribe(() => void this.router.navigateByUrl('/login'));
   }
 }

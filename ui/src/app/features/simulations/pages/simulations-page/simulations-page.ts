@@ -12,12 +12,8 @@ import { SimulationsStore } from '../../store/simulations.store';
       <header class="page-header">
         <div>
           <p class="eyebrow">Simulation lab</p>
-          <h1>Test a payment, compare thresholds, or persist a live assessment from one desk.</h1>
+          <h1>Simulation lab</h1>
         </div>
-        <p class="page-copy">
-          This page is the experimentation surface for analysts: same payload, different decision
-          paths, and a direct bridge into the persisted workflow when you need it.
-        </p>
       </header>
 
       <form class="lab-grid" [formGroup]="form">
@@ -195,7 +191,7 @@ import { SimulationsStore } from '../../store/simulations.store';
         <article class="detail-panel">
           <div class="section-heading">
             <p class="eyebrow">New profile</p>
-            <h2>Create a versioned threshold candidate</h2>
+            <h2>Create threshold profile</h2>
           </div>
 
           @if (store.activeProfile(); as activeProfile) {

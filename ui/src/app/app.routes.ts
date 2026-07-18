@@ -43,6 +43,11 @@ export const routes: Routes = [
         path: 'operations',
         loadChildren: () =>
           import('./features/operations/operations.routes').then((m) => m.OPERATIONS_ROUTES)
+      },
+      {
+        path: 'quality',
+        loadChildren: () =>
+          import('./features/quality/quality.routes').then((m) => m.QUALITY_ROUTES)
       }
     ]
   },

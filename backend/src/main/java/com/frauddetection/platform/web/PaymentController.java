@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import com.frauddetection.platform.service.AuthenticatedOperatorService;
 
 @RestController
@@ -45,8 +46,11 @@ public class PaymentController {
 
     @GetMapping
     @Operation(summary = "List tracked payments", description = "Returns the currently persisted payment records without expanding their full transition history.")
-    public List<PaymentStatusResponse> findAll() {
-        return paymentQueryService.findAll();
+    public List<PaymentStatusResponse> findAll(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "100") int size
+    ) {
+        return paymentQueryService.findAll(page, size);
     }
 
     @GetMapping("/{paymentId}")

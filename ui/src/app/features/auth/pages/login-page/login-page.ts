@@ -11,29 +11,14 @@ import { AuthStateService } from '../../../../core/auth/auth-state.service';
   template: `
     <div class="login-page">
       <section class="login-page__story">
-        <p class="eyebrow">Friday, July 17, 2026</p>
-        <h1>Fraud review should read like a decision desk, not a cluttered dashboard.</h1>
-        <p class="lede">
-          Signal Desk brings queue pressure, payment state, scoring posture, and outbound risk
-          operations into one operator-focused surface.
-        </p>
-
-        <div class="metric-strip">
-          <div>
-            <span>Primary users</span>
-            <strong>Analysts, supervisors, platform admins</strong>
-          </div>
-          <div>
-            <span>Core job</span>
-            <strong>Review, explain, and act on payment risk</strong>
-          </div>
-        </div>
+        <p class="eyebrow">Saturday, July 18, 2026</p>
+        <h1>Signal Desk</h1>
       </section>
 
       <section class="login-page__panel">
         <div class="section-heading">
           <p class="eyebrow">Operator access</p>
-          <h2>Sign in with a persisted demo operator</h2>
+          <h2>Sign in</h2>
         </div>
 
         <div class="operator-list">
@@ -41,7 +26,7 @@ import { AuthStateService } from '../../../../core/auth/auth-state.service';
             <button
               class="operator-list__item"
               type="button"
-              (click)="fillDemoAccount(account.username, account.password)"
+              (click)="fillDemoAccount(account.username)"
             >
               <strong>{{ account.label }}</strong>
               <span>{{ account.username }}</span>
@@ -91,8 +76,8 @@ export class LoginPage {
     password: ['', Validators.required]
   });
 
-  protected fillDemoAccount(username: string, password: string): void {
-    this.form.setValue({ username, password });
+  protected fillDemoAccount(username: string): void {
+    this.form.patchValue({ username });
     this.error.set('');
   }
 

@@ -2,6 +2,9 @@ server:
   port: 8080
 
 management:
+  health:
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -57,6 +60,10 @@ spring:
 
 fraud:
   security:
+    demo-users-enabled: ${FRAUD_DEMO_USERS_ENABLED:false}
+    machine-auth:
+      mode: ${FRAUD_MACHINE_AUTH_MODE:oauth2}
+      roles-claim: ${OAUTH2_ROLES_CLAIM:roles}
     step-up:
       token-validity: 5m
       session-validity: 10m

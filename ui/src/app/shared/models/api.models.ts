@@ -1,6 +1,49 @@
-export interface AuthSession {
+export interface AuthCredentials {
   username: string;
   password: string;
+}
+
+export interface AuthSession {
+  username: string;
+  authorities: string[];
+}
+
+export interface FraudOutcomeRequest {
+  outcomeLabel: 'CONFIRMED_FRAUD' | 'ACCOUNT_TAKEOVER' | 'CHARGEBACK' | 'GENUINE' | 'CUSTOMER_AUTHORIZED' | 'INCONCLUSIVE';
+  source: string;
+  actualLoss: number;
+  recoveredAmount: number;
+  notes: string;
+  occurredAt: string | null;
+}
+
+export interface FraudOutcome {
+  outcomeId: string;
+  assessmentId: string;
+  outcomeLabel: string;
+  source: string;
+  actualLoss: number;
+  recoveredAmount: number;
+  notes: string | null;
+  labelledBy: string;
+  occurredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FraudQualityMetrics {
+  totalLabelled: number;
+  conclusiveLabels: number;
+  truePositives: number;
+  falsePositives: number;
+  falseNegatives: number;
+  trueNegatives: number;
+  precision: number;
+  recall: number;
+  falsePositiveRate: number;
+  actualLoss: number;
+  recoveredAmount: number;
+  netLoss: number;
 }
 
 export interface RiskFactorView {

@@ -4,11 +4,13 @@ import com.frauddetection.platform.dto.PaymentRiskAssessmentRequest;
 import com.frauddetection.platform.model.RiskDecision;
 import com.frauddetection.platform.model.RiskFactor;
 import com.frauddetection.platform.model.RiskFactorCode;
+import com.frauddetection.platform.model.FraudRuleSet;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import com.frauddetection.platform.dto.FraudScoringProfileResponse;
 
 @Service
 public class FraudRiskScoringService {
@@ -29,30 +31,33 @@ public class FraudRiskScoringService {
         FraudScoringProfile profile
     ) {
         List<RiskFactor> factors = new ArrayList<>();
+        FraudRuleSet rules = profile.rules();
 
         BigDecimal amountRatio = request.amount()
             .divide(request.customerAverageTicket(), 2, RoundingMode.HALF_UP);
 
-        if (amountRatio.compareTo(BigDecimal.valueOf(3.0)) >= 0) {
+        if (amountRatio.compareTo(rules.amountSpikeMultiplier()) >= 0) {
             factors.add(new RiskFactor(
                 RiskFactorCode.AMOUNT_SPIKE,
-                25,
-                "Payment amount is at least 3x the customer's average ticket."
+                rules.amountSpikeWeight(),
+                "Payment amount is at least %sx the customer's average ticket."
+                    .formatted(rules.amountSpikeMultiplier().stripTrailingZeros().toPlainString())
             ));
         }
 
-        if (velocitySnapshot.transactionCountLastFiveMinutes() >= 4) {
+        if (velocitySnapshot.transactionCountLastFiveMinutes() >= rules.velocityCountThreshold()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.HIGH_VELOCITY,
-                20,
-                "Customer has at least 4 transactions in the last 5 minutes."
+                rules.velocityWeight(),
+                "Customer has at least %d transactions in the last 5 minutes."
+                    .formatted(rules.velocityCountThreshold())
             ));
         }
 
-        if (velocitySnapshot.spendLastHour().compareTo(request.customerAverageTicket().multiply(BigDecimal.valueOf(8))) >= 0) {
+        if (velocitySnapshot.spendLastHour().compareTo(request.customerAverageTicket().multiply(rules.spendBurstMultiplier())) >= 0) {
             factors.add(new RiskFactor(
                 RiskFactorCode.SPEND_BURST,
-                15,
+                rules.spendBurstWeight(),
                 "Spend in the last hour is materially above the customer's baseline."
             ));
         }
@@ -60,7 +65,7 @@ public class FraudRiskScoringService {
         if (request.newDevice()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.NEW_DEVICE,
-                10,
+                rules.newDeviceWeight(),
                 "Payment was initiated from a device the customer has not used recently."
             ));
         }
@@ -68,31 +73,32 @@ public class FraudRiskScoringService {
         if (request.impossibleTravel()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.IMPOSSIBLE_TRAVEL,
-                25,
+                rules.impossibleTravelWeight(),
                 "Location behavior indicates impossible travel or conflicting session geography."
             ));
         }
 
-        if (request.beneficiaryAgeHours() <= 24) {
+        if (request.beneficiaryAgeHours() <= rules.beneficiaryAgeHoursThreshold()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.NEW_BENEFICIARY,
-                15,
-                "Beneficiary relationship is less than 24 hours old."
+                rules.newBeneficiaryWeight(),
+                "Beneficiary relationship is at most %d hours old."
+                    .formatted(rules.beneficiaryAgeHoursThreshold())
             ));
         }
 
         if (request.recentPasswordReset()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.RECENT_PASSWORD_RESET,
-                15,
+                rules.recentPasswordResetWeight(),
                 "A recent account security change increases account-takeover risk."
             ));
         }
 
-        if (isHighRiskMerchantCategory(request.merchantCategory())) {
+        if (isHighRiskMerchantCategory(request.merchantCategory(), rules)) {
             factors.add(new RiskFactor(
                 RiskFactorCode.HIGH_RISK_MERCHANT,
-                12,
+                rules.riskyMerchantWeight(),
                 "Merchant category is historically associated with elevated fraud pressure."
             ));
         }
@@ -100,7 +106,7 @@ public class FraudRiskScoringService {
         if (request.highRiskCountry()) {
             factors.add(new RiskFactor(
                 RiskFactorCode.HIGH_RISK_COUNTRY,
-                18,
+                rules.highRiskCountryWeight(),
                 "The payment is linked to a geography with elevated fraud risk."
             ));
         }
@@ -120,6 +126,10 @@ public class FraudRiskScoringService {
         return fraudScoringProfileService.activeProfile();
     }
 
+    public FraudScoringProfileResponse activeProfileDetails() {
+        return fraudScoringProfileService.readActiveProfile();
+    }
+
     private RiskDecision toDecision(int riskScore, FraudScoringProfile profile) {
         if (riskScore >= profile.declineThreshold()) {
             return RiskDecision.DECLINE;
@@ -133,11 +143,8 @@ public class FraudRiskScoringService {
         return RiskDecision.ALLOW;
     }
 
-    private boolean isHighRiskMerchantCategory(String merchantCategory) {
-        return switch (merchantCategory.trim().toUpperCase()) {
-            case "ELECTRONICS", "CRYPTO", "GIFT_CARD", "MONEY_TRANSFER" -> true;
-            default -> false;
-        };
+    private boolean isHighRiskMerchantCategory(String merchantCategory, FraudRuleSet rules) {
+        return rules.riskyMerchantCategories().contains(merchantCategory.trim().toUpperCase());
     }
 
     private String buildSummary(RiskDecision decision, List<RiskFactor> factors) {

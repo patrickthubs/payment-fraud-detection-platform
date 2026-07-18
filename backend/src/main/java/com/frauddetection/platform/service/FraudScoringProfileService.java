@@ -9,12 +9,16 @@ import com.frauddetection.platform.entity.FraudScoringProfileEntity;
 import com.frauddetection.platform.exception.FraudScoringProfileConflictException;
 import com.frauddetection.platform.exception.FraudScoringProfileNotFoundException;
 import com.frauddetection.platform.repository.FraudScoringProfileRepository;
+import com.frauddetection.platform.model.FraudRuleSet;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class FraudScoringProfileService {
@@ -22,15 +26,27 @@ public class FraudScoringProfileService {
     private final FraudScoringProfileRepository fraudScoringProfileRepository;
     private final FraudScoringProperties fraudScoringProperties;
     private final Clock clock;
+    private final ObjectMapper objectMapper;
 
     public FraudScoringProfileService(
         FraudScoringProfileRepository fraudScoringProfileRepository,
         FraudScoringProperties fraudScoringProperties,
         Clock clock
     ) {
+        this(fraudScoringProfileRepository, fraudScoringProperties, clock, new ObjectMapper());
+    }
+
+    @Autowired
+    public FraudScoringProfileService(
+        FraudScoringProfileRepository fraudScoringProfileRepository,
+        FraudScoringProperties fraudScoringProperties,
+        Clock clock,
+        ObjectMapper objectMapper
+    ) {
         this.fraudScoringProfileRepository = fraudScoringProfileRepository;
         this.fraudScoringProperties = fraudScoringProperties;
         this.clock = clock;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -72,7 +88,9 @@ public class FraudScoringProfileService {
         FraudScoringProfile thresholds = new FraudScoringProfile(
             request.challengeThreshold(),
             request.holdThreshold(),
-            request.declineThreshold()
+            request.declineThreshold(),
+            "rules-" + UUID.randomUUID(),
+            request.rules() == null ? FraudRuleSet.defaults() : request.rules()
         );
         Instant createdAt = clock.instant();
         int nextVersion = fraudScoringProfileRepository.findTopByOrderByVersionNumberDesc()
@@ -86,6 +104,8 @@ public class FraudScoringProfileService {
             thresholds.challengeThreshold(),
             thresholds.holdThreshold(),
             thresholds.declineThreshold(),
+            thresholds.rulesetVersion(),
+            writeRules(thresholds.rules()),
             request.changeSummary(),
             operator,
             null,
@@ -124,7 +144,9 @@ public class FraudScoringProfileService {
         return new FraudScoringProfile(
             entity.getChallengeThreshold(),
             entity.getHoldThreshold(),
-            entity.getDeclineThreshold()
+            entity.getDeclineThreshold(),
+            entity.getRulesetVersion(),
+            readRules(entity.getRuleDefinition())
         );
     }
 
@@ -140,6 +162,8 @@ public class FraudScoringProfileService {
                 entity.getHoldThreshold(),
                 entity.getDeclineThreshold()
             ),
+            entity.getRulesetVersion(),
+            readRules(entity.getRuleDefinition()),
             entity.getChangeSummary(),
             entity.getCreatedBy(),
             entity.getCreatedAt(),
@@ -161,11 +185,32 @@ public class FraudScoringProfileService {
                 profile.holdThreshold(),
                 profile.declineThreshold()
             ),
+            profile.rulesetVersion(),
+            profile.rules(),
             "Active configuration sourced from application properties.",
             "system",
             null,
             "system",
             null
         );
+    }
+
+    private String writeRules(FraudRuleSet rules) {
+        try {
+            return objectMapper.writeValueAsString(rules);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Could not serialize fraud rule configuration.", exception);
+        }
+    }
+
+    private FraudRuleSet readRules(String value) {
+        if (value == null || value.isBlank() || "{}".equals(value)) {
+            return FraudRuleSet.defaults();
+        }
+        try {
+            return objectMapper.readValue(value, FraudRuleSet.class);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Stored fraud rule configuration is invalid.", exception);
+        }
     }
 }

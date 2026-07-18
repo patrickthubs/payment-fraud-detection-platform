@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.frauddetection.platform.entity.FraudCaseTimelineEntryEntity;
@@ -23,7 +24,11 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 class FraudCaseQueryServiceTest {
@@ -74,8 +79,9 @@ class FraudCaseQueryServiceTest {
 
     @Test
     void exportsSupervisorCsvFromPersistedCases() {
-        when(fraudReviewCaseRepository.findAll(typedSpecification(), eq(Sort.by(Sort.Direction.DESC, "createdAt"))))
-            .thenReturn(List.of(
+        PageRequest exportPage = PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "createdAt"));
+        when(fraudReviewCaseRepository.findAll(typedSpecification(), eq(exportPage)))
+            .thenReturn(new PageImpl<>(List.of(
                 buildCase(
                     UUID.fromString("10000000-0000-0000-0000-000000000001"),
                     "PAY-EXPORT-1001",
@@ -83,7 +89,7 @@ class FraudCaseQueryServiceTest {
                     ReviewCaseStatus.ESCALATED,
                     "2026-07-16T08:30:00Z"
                 )
-            ));
+            )));
 
         String csv = fraudCaseQueryService.export(new FraudCaseFilterCriteria(
             ReviewCaseStatus.ESCALATED,
@@ -96,12 +102,42 @@ class FraudCaseQueryServiceTest {
             null,
             null,
             null
-        ));
+        ), 100);
 
         assertThat(csv).contains("case_id,assessment_id,payment_id,customer_id,status,decision,risk_score,current_assignee,created_at,updated_at,breached_sla,resolution_outcome,resolution_summary,summary");
         assertThat(csv).contains("\"PAY-EXPORT-1001\"");
         assertThat(csv).contains("\"true\"");
         assertThat(csv).contains("\"Needs callback verification\"");
+    }
+
+    @Test
+    void capsCsvExportsAtTheMaximumBatchSize() {
+        when(fraudReviewCaseRepository.findAll(typedSpecification(), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of()));
+
+        fraudCaseQueryService.export(emptyCriteria(), Integer.MAX_VALUE);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(fraudReviewCaseRepository).findAll(typedSpecification(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(FraudCaseQueryService.MAX_EXPORT_LIMIT);
+    }
+
+    @Test
+    void neutralizesSpreadsheetFormulasInExportedText() {
+        FraudReviewCaseEntity exportedCase = buildCase(
+            UUID.fromString("10000000-0000-0000-0000-000000000020"),
+            "PAY-EXPORT-SECURE",
+            "senior.analyst",
+            ReviewCaseStatus.OPEN,
+            "2026-07-17T08:30:00Z",
+            "=2+2"
+        );
+        when(fraudReviewCaseRepository.findAll(typedSpecification(), any(Pageable.class)))
+            .thenReturn(new PageImpl<>(List.of(exportedCase)));
+
+        String csv = fraudCaseQueryService.export(emptyCriteria());
+
+        assertThat(csv).contains("\"'=2+2\"");
     }
 
     @Test
@@ -152,6 +188,17 @@ class FraudCaseQueryServiceTest {
         ReviewCaseStatus status,
         String createdAt
     ) {
+        return buildCase(caseId, paymentId, assignee, status, createdAt, "Needs callback verification");
+    }
+
+    private FraudReviewCaseEntity buildCase(
+        UUID caseId,
+        String paymentId,
+        String assignee,
+        ReviewCaseStatus status,
+        String createdAt,
+        String summary
+    ) {
         Instant createdTimestamp = Instant.parse(createdAt);
         return new FraudReviewCaseEntity(
             caseId,
@@ -161,13 +208,17 @@ class FraudCaseQueryServiceTest {
             82,
             RiskDecision.HOLD,
             status,
-            "Needs callback verification",
+            summary,
             assignee,
             status == ReviewCaseStatus.RESOLVED ? "Resolved" : null,
             status == ReviewCaseStatus.RESOLVED ? CaseResolutionOutcome.RELEASE_PAYMENT : null,
             createdTimestamp,
             createdTimestamp.plusSeconds(600)
         );
+    }
+
+    private FraudCaseFilterCriteria emptyCriteria() {
+        return new FraudCaseFilterCriteria(null, null, null, null, null, null, null, null, null, null);
     }
 
     @SuppressWarnings("unchecked")

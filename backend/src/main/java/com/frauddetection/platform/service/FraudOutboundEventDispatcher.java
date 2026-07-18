@@ -38,6 +38,7 @@ public class FraudOutboundEventDispatcher {
     }
 
     @Scheduled(fixedDelayString = "${fraud.outbox.dispatch-delay-ms:15000}")
+    @Transactional
     public void dispatchScheduledEvents() {
         dispatchReadyEvents();
     }

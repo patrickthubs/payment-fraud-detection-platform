@@ -4,8 +4,24 @@ springdoc:
   swagger-ui:
     enabled: false
 
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI}
+          audiences: ${OAUTH2_AUDIENCE:fraud-api}
+
 fraud:
   security:
+    demo-users-enabled: false
+    machine-auth:
+      mode: oauth2
+      roles-claim: ${OAUTH2_ROLES_CLAIM:roles}
     step-up:
       expose-verification-url: false
       delivery-channel: EMAIL
@@ -14,3 +30,11 @@ fraud:
       verify-window: 10m
       max-verify-failures: 5
       lockout-duration: 15m
+
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: strict

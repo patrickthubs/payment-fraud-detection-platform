@@ -24,6 +24,9 @@ This project models that style of decisioning with a transparent rules-based eng
 
 - Spring Boot 4 backend service
 - explainable fraud scoring endpoint
+- immutable decision provenance with complete rule, input, factor, and profile snapshots
+- idempotent assessment submission through the `Idempotency-Key` header
+- confirmed fraud outcome labels and decision-quality metrics
 - non-persistent fraud simulation endpoint
 - threshold comparison simulation tooling
 - persisted replay batches for historical scenario analysis
@@ -39,6 +42,7 @@ This project models that style of decisioning with a transparent rules-based eng
 - Kafka assessment event publishing
 - Kafka topic conventions and local Docker stack
 - secure step-up verification with delivery audit, resend, revoke, and replay protection
+- server-side operator sessions with CSRF protection and no browser password persistence
 - architecture documentation grounded in real payment-fraud concepts
 - workflow documentation for assessment, payment, and case operations
 - unit and integration-style application boot coverage
@@ -53,13 +57,8 @@ This project models that style of decisioning with a transparent rules-based eng
 ## Architecture Overview
 
 Current implementation:
-- `backend`: single Spring Boot decisioning service
-
-Planned platform evolution:
-- payment-intake service
-- fraud-decision service
-- case-management service
-- event audit pipeline
+- `backend`: single Spring Boot 4 service for fraud assessment, case management, payment lifecycle, replay batches, scoring profiles, outbound operations, reviewer analytics, and step-up security
+- `ui`: Angular operator console for overview, cases, payments, simulations, and operations
 
 Supporting infrastructure:
 - Kafka for payment and decision events
@@ -90,11 +89,18 @@ See [docs/api-workflows.md](C:/Users/ntsatsi.thubakgale/NEW_PROJECTS/payment-fra
 ```text
 payment-fraud-detection-platform/
 |- backend/
+|  |- Dockerfile
 |  |- pom.xml
+|  \- src/
+|- ui/
+|  |- Dockerfile
+|  |- nginx.conf
+|  |- package.json
 |  \- src/
 |- docs/
 |  |- api-workflows.md
-|  \- architecture.md
+|  |- architecture.md
+|  \- smoke-test.md
 |- docker-compose.yml
 \- README.md
 ```
@@ -119,12 +125,50 @@ The response returns:
 - triggered factors
 - analyst-style explanation summary
 
+## Docker Desktop Run
+
+Build and start the complete application stack:
+
+```bash
+docker compose up -d --build
+```
+
+Docker Desktop will show six containers under the `payment-fraud-detection-platform` Compose project:
+
+- `ui`: Angular production bundle served by Nginx at `http://localhost:4200`
+- `backend`: Spring Boot API at `http://localhost:8080`
+- `postgres`: PostgreSQL at `localhost:15432`
+- `redis`: Redis at `localhost:16379`
+- `kafka`: Kafka at `localhost:19092`
+- `mailpit`: email viewer at `http://localhost:8025`
+
+The UI proxies `/api` and `/actuator` to the backend inside the Docker network, preserving same-origin sessions and CSRF protection. PostgreSQL and Redis use named volumes so data survives container recreation.
+
+Inspect status and logs from the terminal or select any service in Docker Desktop:
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose logs -f backend
+docker compose logs -f ui
+```
+
+Application and infrastructure logs are written to container stdout/stderr with local log rotation. Rebuild one application after source changes with `docker compose up -d --build backend` or `docker compose up -d --build ui`.
+
+Stop the stack without deleting data:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only when you intentionally want to delete the PostgreSQL and Redis volumes.
+
 ## Local Run
 
 ### 1. Start infrastructure
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis kafka mailpit
 ```
 
 Local host ports:
@@ -138,7 +182,7 @@ Local host ports:
 
 ```bash
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 The backend defaults already point to the Redis and Kafka ports above, so you only need environment overrides if your workstation uses different ports.
@@ -154,13 +198,18 @@ Use these HTTP Basic accounts for local testing:
 - `senior.analyst / local-senior-2026`: analyst access plus escalate, release, and confirm declines
 - `platform.admin / local-admin-2026`: full local access including Swagger/OpenAPI endpoints
 
-These demo operators are now seeded into the database through Flyway instead of being defined in application properties, so local authentication follows the same persisted path as production-style deployments.
+These operators are created only by the explicit `local` profile (`fraud.security.demo-users-enabled=true`). Demo users are disabled by default and explicitly disabled again by the `prod` profile. Flyway removes known demo identities before the local initializer runs, so production does not inherit reusable demonstration credentials.
+
+The Angular console exchanges the password once for a server-side session. It does not store passwords in `localStorage` or attach a Basic Auth header to every browser request. HTTP Basic remains available only in local/test configuration for machine clients and command-line examples.
+
+Production machine clients use OAuth2 client-credentials access tokens. The `prod` profile requires `OAUTH2_ISSUER_URI`, validates the `aud` claim against `OAUTH2_AUDIENCE` (default `fraud-api`), and maps `OAUTH2_ROLES_CLAIM` (default `roles`) values such as `SCORING_CLIENT` to Spring Security roles. Browser sessions and machine bearer tokens coexist without sharing credentials.
 
 ### 4. Call the assessment endpoint
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/fraud-assessments ^
   -u ingest.client:local-ingest-2026 ^
+  -H "Idempotency-Key: smoke-PAY-1001" ^
   -H "Content-Type: application/json" ^
   -d "{\
     \"paymentId\":\"PAY-1001\",\
@@ -196,7 +245,7 @@ If someone clones the project for the first time, this is the fastest reliable l
 
 ```bash
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 4. Confirm health:
@@ -254,6 +303,9 @@ For a longer guided walkthrough, use [docs/api-workflows.md](C:/Users/ntsatsi.th
 ## API Areas
 
 - `POST /api/v1/fraud-assessments`: score a payment and persist the resulting payment state
+- `POST /api/v1/auth/session`: exchange operator credentials for a CSRF-protected server session
+- `GET /api/v1/auth/session`: inspect the current operator session without exposing credentials
+- `POST /api/v1/auth/logout`: invalidate the current operator session
 - `POST /api/v1/fraud-assessments/simulations`: score a payment scenario without persisting records
 - `POST /api/v1/fraud-assessments/simulations/compare`: compare baseline and override thresholds without persisting records
 - `POST /api/v1/fraud-assessments/simulations/compare-saved-profile/{profileId}`: compare the live thresholds against a stored candidate profile without persisting records
@@ -262,6 +314,9 @@ For a longer guided walkthrough, use [docs/api-workflows.md](C:/Users/ntsatsi.th
 - `GET /api/v1/fraud-assessments/scoring-profiles`: list draft and active fraud scoring profiles
 - `POST /api/v1/fraud-assessments/scoring-profiles`: create a versioned fraud scoring profile without activating it
 - `POST /api/v1/fraud-assessments/scoring-profiles/{profileId}/activate`: promote one saved fraud scoring profile to live usage
+- `POST /api/v1/fraud-outcomes/assessments/{assessmentId}`: record or correct a supervisor-confirmed fraud outcome
+- `GET /api/v1/fraud-outcomes/assessments/{assessmentId}`: inspect the ground-truth outcome for an assessment
+- `GET /api/v1/fraud-outcomes/quality-metrics`: inspect precision, recall, false-positive rate, and loss recovery
 - `GET /api/v1/fraud-operations/summary`: view aggregate fraud operations metrics
 - `GET /api/v1/fraud-operations/outbound-events`: inspect recent outbound delivery records with status, topic, event-type, message-key, and note filters
 - `GET /api/v1/fraud-operations/outbound-events/analytics`: view retry health, daily delivery trends, and failed-incident aging
@@ -326,8 +381,10 @@ Supervisors can export the same filtered backlog as CSV:
 
 ```bash
 curl -u senior.analyst:local-senior-2026 ^
-  "http://localhost:8080/api/v1/fraud-cases/export?status=ESCALATED&breachedOnly=true"
+  "http://localhost:8080/api/v1/fraud-cases/export?status=ESCALATED&breachedOnly=true&limit=1000"
 ```
+
+Case exports default to 1,000 rows and reject HTTP limits outside `1..10000`. The service also enforces the 10,000-row maximum for non-HTTP callers and neutralizes spreadsheet-formula prefixes in exported text.
 
 ## Simulation Workflow
 
@@ -400,6 +457,12 @@ Use the versioned profile endpoints when you want threshold changes to be review
 - inspect the live profile with `GET /api/v1/fraud-assessments/scoring-profiles/active`
 - compare a candidate profile against the live profile with `POST /api/v1/fraud-assessments/simulations/compare-saved-profile/{profileId}`
 - activate the candidate once it is approved with `POST /api/v1/fraud-assessments/scoring-profiles/{profileId}/activate`
+
+Profiles now version the complete rule definition as well as decision thresholds. Every persisted assessment captures the profile ID/version, ruleset version, normalized input snapshot, factor details, and request hash used for that decision.
+
+## Outcome Feedback Workflow
+
+Use the Decision Quality screen or `POST /api/v1/fraud-outcomes/assessments/{assessmentId}` to attach ground truth such as `CONFIRMED_FRAUD`, `ACCOUNT_TAKEOVER`, `CHARGEBACK`, `GENUINE`, `CUSTOMER_AUTHORIZED`, or `INCONCLUSIVE`. Conclusive labels feed precision, recall, false-positive rate, and net-loss metrics; inconclusive labels remain auditable without distorting model-quality calculations.
 
 ## Fraud Operations Summary
 
@@ -513,6 +576,8 @@ mvn test
 mvn clean verify
 ```
 
+When Docker is available, both commands run PostgreSQL 17 Testcontainers coverage that applies all Flyway migrations, validates Hibernate mappings, and exercises a real JPA repository. The PostgreSQL test is reported as skipped when Docker is unavailable; H2 remains the explicit fast-test fallback.
+
 ## Repository Metadata
 
 Suggested public repository description:
@@ -577,12 +642,15 @@ curl -X POST http://localhost:8080/api/v1/security/step-up/revoke ^
 
 ## Roadmap
 
-- add rate limiting and abuse detection around repeated step-up generation and verification failures
 - integrate production email delivery with dedicated provider configuration and delivery observability
+- add device, beneficiary, merchant, account, and IP relationship analysis for linked fraud-ring investigations
+- publish small Java and TypeScript integration SDKs after the idempotency and outcome contracts stabilize
+- add champion/challenger shadow scoring and automatic rollback criteria using the labelled outcome dataset
+- consider anomaly or machine-learning scores only after enough trustworthy ground-truth labels exist
 
 ## Troubleshooting
 
-- If H2 migration tests fail locally after schema work, rerun `mvn clean verify` so Flyway validates against a clean database.
+- If migration tests fail locally after schema work, start Docker Desktop and rerun `mvn clean verify` so Flyway is validated against a clean PostgreSQL 17 container as well as H2.
 - If Redis or Kafka are unavailable, the scoring API still starts, but local infrastructure-backed behavior is best tested with `docker compose up -d`.
 - If a case cannot be released, inspect the original decision: a case created from an immediate `DECLINE` cannot be released by the current business rules.
 

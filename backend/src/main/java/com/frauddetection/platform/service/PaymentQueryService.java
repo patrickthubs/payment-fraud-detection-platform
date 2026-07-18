@@ -9,6 +9,9 @@ import com.frauddetection.platform.repository.PaymentRecordRepository;
 import com.frauddetection.platform.repository.PaymentStateTransitionRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentQueryService {
@@ -25,11 +28,21 @@ public class PaymentQueryService {
     }
 
     public List<PaymentStatusResponse> findAll() {
-        return paymentRecordRepository.findAll().stream()
+        return findAll(0, 100);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentStatusResponse> findAll(int page, int size) {
+        int boundedPage = Math.max(0, page);
+        int boundedSize = Math.min(Math.max(1, size), 200);
+        return paymentRecordRepository.findAll(
+            PageRequest.of(boundedPage, boundedSize, Sort.by(Sort.Direction.DESC, "updatedAt"))
+        ).stream()
             .map(entity -> toResponse(entity, List.of()))
             .toList();
     }
 
+    @Transactional(readOnly = true)
     public PaymentStatusResponse findByPaymentId(String paymentId) {
         PaymentRecordEntity entity = paymentRecordRepository.findByPaymentId(paymentId)
             .orElseThrow(() -> new PaymentNotFoundException(paymentId));

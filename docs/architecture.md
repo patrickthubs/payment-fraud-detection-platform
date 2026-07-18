@@ -1,251 +1,324 @@
 # Architecture
 
+## Current Architecture
+
+As of Saturday, July 18, 2026, this repository runs as a production-oriented modular monolith with a separate Angular operator console:
+
+- the complete local platform can run as a six-service Docker Compose project
+- the backend is packaged as a non-root Java 26 runtime image
+- the Angular production bundle is served by Nginx with same-origin API proxying
+- PostgreSQL and Redis data use named Docker volumes
+- service logs remain on stdout/stderr for Docker Desktop inspection with rotation
+
+- `backend`: one Spring Boot 4 service
+- `ui`: one Angular application
+- `docker-compose.yml`: local PostgreSQL, Redis, Kafka, and Mailpit
+
+This is the current architecture of the project today. The repository does not currently run as multiple backend microservices.
+
 ## Problem Framing
 
 Banks and payment processors detect suspicious payments by combining many signals quickly enough to decide whether a payment should be:
+
 - allowed
 - challenged
 - held
 - declined
 
-The main engineering challenge is not just classification. It is low-latency, explainable, operationally safe decisioning under partial information.
+The engineering challenge is not only scoring. It is explainable, low-latency, operationally safe decisioning with durable review, audit, and recovery behavior around that score.
 
-## What Is Good About The Proposed Direction
+## Why The Current Shape Works
 
-- Uses boring, reliable infrastructure for the core path
-- Keeps fraud logic explainable before jumping to opaque ML
-- Separates real-time scoring from longer-running case review
-- Uses Redis where sub-millisecond counters matter
-- Uses Kafka where event ordering and asynchronous fan-out matter
-- Leaves PostgreSQL for durable state, analyst review, and audit
+- keeps the synchronous decision path simple
+- keeps fraud logic explainable and testable
+- keeps durable business state in PostgreSQL
+- uses Redis for low-latency velocity features
+- uses Kafka for asynchronous fraud and payment event distribution
+- gives operators a separate UI without leaking backend business logic into the frontend
+- avoids premature microservice overhead while still maintaining clean internal boundaries
 
-## What Is Risky
+## Current Deployable Units
 
-- Premature microservices can create operational overhead before the rules are stable
-- Real fraud scoring can become an untestable rule pile if rule ownership is unclear
-- False positives can damage customer trust if the system only optimizes for fraud catch rate
-- Real-time dependencies can create decision latency if every feature lookup becomes synchronous
+### Backend
 
-## What Is Missing In Many Naive Designs
+The backend is one deployable Spring Boot service with conventional package boundaries:
 
-- explicit latency budgets
-- decision explainability
-- rule simulation and replay
-- analyst case-management workflow
-- event idempotency
-- partial-failure strategy when Redis or Kafka is degraded
-- measurement of false-positive cost
+- `web`
+- `service`
+- `repository`
+- `entity`
+- `dto`
+- `model`
+- `config`
+- `exception`
 
-## Simpler Alternative
+### UI
 
-A simpler first version is a modular monolith:
-- one decisioning service
-- stateless scoring endpoint
-- externalized interfaces for Kafka and Redis
-- one local Docker stack
+The UI is a separate Angular application that calls the backend APIs and exposes operator workflows through routeable screens instead of one oversized dashboard.
 
-That is the recommended starting point for this project.
+### Local Infrastructure
 
-## Recommended Architecture
+The local stack is provided through Docker Compose:
 
-### Phase 1
+- PostgreSQL on `localhost:15432`
+- Redis on `localhost:16379`
+- Kafka on `localhost:19092`
+- Mailpit SMTP on `localhost:1025`
+- Mailpit web UI on `http://localhost:8025`
 
-Single Spring Boot service:
-- `fraud assessment API`
-- `rules-based scoring engine`
-- `velocity feature abstraction`
-- `decision explanation builder`
+## Functional Boundaries In The Current Backend
 
-Infrastructure present but lightly coupled:
-- Kafka for asynchronous fraud and payment events
-- Redis for future feature lookups
-- PostgreSQL for case data, replay batches, payment state, and outbound delivery records
+The application is one deployable service, but it is already split into meaningful backend capabilities.
 
-### Phase 2
-
-Split into bounded services when the behavior stabilizes:
-- `payment-intake-service`
-- `fraud-decision-service`
-- `case-management-service`
-- `audit-ingest-service`
-
-## Domain Boundaries
-
-### Payment Intake
+### Assessment and Scoring
 
 Owns:
-- payment submission requests
-- payment identifiers
-- routing into fraud decisioning
 
-Does not own:
-- final analyst workflow
-- device intelligence reference data
+- fraud assessment intake
+- risk factor evaluation
+- score calculation
+- decision selection
+- explanation summary creation
 
-### Fraud Decisioning
+Representative code:
 
-Owns:
-- risk scoring
-- rule evaluation
-- decision outcome
-- decision explanation
+- `web/FraudAssessmentController`
+- `service/FraudAssessmentService`
+- `service/FraudRiskScoringService`
+- `service/RedisVelocityFeatureService`
 
-Does not own:
-- customer ledger movement
-- final settlement orchestration
-
-### Case Management
+### Payment Lifecycle
 
 Owns:
-- manual review queues
-- analyst decisions
-- disposition notes
-- escalation workflow
 
-## Real-Time Decision Model
+- persisted payment records
+- payment status transitions
+- challenge outcome completion
+- payment query APIs
 
-Recommended actions:
-- `ALLOW`
-- `CHALLENGE`
-- `HOLD`
-- `DECLINE`
+Representative code:
 
-Suggested meaning:
-- `ALLOW`: low enough risk to continue automatically
-- `CHALLENGE`: require OTP or stronger customer step-up
-- `HOLD`: stop automated completion and send to review
-- `DECLINE`: reject immediately
+- `web/PaymentController`
+- `service/PaymentLifecycleService`
+- `service/PaymentQueryService`
 
-## Example Fraud Signals
+### Fraud Case Management
 
-Signals to model early:
-- amount compared to customer baseline
-- transaction count in last 5 minutes
-- spend in last 1 hour
-- new device
-- impossible travel
-- beneficiary age
-- merchant risk class
-- recent account security changes
-- country risk
+Owns:
 
-These are realistic categories without claiming access to proprietary banking signals.
+- review queue filters
+- case assignment
+- notes
+- escalation
+- release and decline confirmation
+- case timeline persistence
 
-## Redis Usage
+Representative code:
 
-Redis is appropriate for:
-- short-lived counters
-- velocity windows
-- recent device keys
-- recent beneficiary keys
-- idempotency guards
+- `web/FraudCaseController`
+- `service/FraudCaseQueryService`
+- `service/FraudCaseCommandService`
 
-Examples:
-- `velocity:customer:{customerId}:5m`
-- `velocity:device:{deviceId}:5m`
-- `beneficiary:new:{customerId}:{beneficiaryId}`
+### Replay and Simulation
 
-## Kafka Usage
+Owns:
 
-Kafka is appropriate for:
-- `payment-submitted`
-- `fraud-assessment-completed`
-- `payment-held`
-- `payment-declined`
-- `case-created`
+- non-persistent simulations
+- threshold comparisons
+- persisted replay batches
+- scoring profile management
+- complete rule-definition versioning and decision provenance
+- confirmed outcome labelling and quality measurement
 
-Why Kafka here:
-- decouples scoring from downstream consumers
-- supports replay for analytics and rule tuning
-- gives clean event boundaries for future service separation
+Representative code:
 
-## PostgreSQL Usage
+- `web/FraudReplayBatchController`
+- `service/FraudSimulationService`
+- `service/FraudReplayBatchService`
+- `service/FraudScoringProfileService`
 
-PostgreSQL should store:
+### Outbound Operations
+
+Owns:
+
+- durable outbound event persistence
+- retry and dispatch operations
+- failed event visibility
+- incident notes
+- operational summaries
+
+Representative code:
+
+- `web/FraudOperationsController`
+- `service/FraudOutboundEventService`
+- `service/FraudOutboundEventDispatcher`
+- `service/FraudOutboundEventOperationsService`
+- `service/FraudOutboundAnalyticsService`
+- `service/FraudOperationsSummaryService`
+
+### Security and Operator Access
+
+Owns:
+
+- persisted operators and roles
+- server-side browser sessions with CSRF protection
+- OAuth2 JWT bearer authentication for production machine clients
+- HTTP Basic authentication restricted to local and test configuration
+- step-up token generation
+- delivery audit
+- resend, revoke, and verification flows
+
+Representative code:
+
+- `config/SecurityConfiguration`
+- `web/StepUpAuthenticationController`
+- `service/DatabaseFraudOperatorDetailsService`
+- `service/StepUpAuthenticationService`
+- `service/StepUpDeliveryGatewayImpl`
+
+## Current UI Surface
+
+The Angular UI is not a static demo. It is an operator console for the backend capabilities above.
+
+Current route areas:
+
+- login
+- overview
+- cases
+- payments
+- simulations
+- operations
+
+The UI stays table-first for operational workflows and uses routeable pages so queue review, payment inspection, simulation work, and operational recovery do not collapse into one long screen.
+
+## Data Ownership and Infrastructure
+
+### PostgreSQL
+
+PostgreSQL is the system of record for:
+
+- fraud assessments
 - fraud cases
-- analyst notes
-- disposition history
-- rule versions
-- replay batches
-- audit metadata
+- case timeline entries
+- payment records
+- payment state transitions
+- replay batches and replay items
+- scoring profiles
+- outbound delivery records
+- operators and roles
+- step-up delivery audit and operator security state
+- fraud outcome labels, monetary loss, and recovery evidence
 
-Avoid putting ultra-hot velocity reads on PostgreSQL in the real-time path.
+Schema evolution is handled through Flyway migrations under `backend/src/main/resources/db/migration`.
 
-## Latency Target
+### Redis
 
-Initial target:
-- p95 decision latency below 150 ms for the scoring API
+Redis supports low-latency velocity and short-lived risk features in the scoring path.
 
-Why:
-- keeps the system usable for synchronous payment checks
-- realistic for a rules-first engine with cached features
+Typical responsibilities:
 
-## Failure Modes
+- recent transaction windows
+- short-lived counters
+- customer or device risk hints
+- short-lived replay protection style checks
+
+### Kafka
+
+Kafka is used for asynchronous fraud and payment events. The synchronous fraud decision path does not depend on Kafka availability to return the immediate API response.
+
+Current event-oriented responsibilities include:
+
+- publishing fraud assessment outcomes
+- publishing payment status changes
+- feeding outbound notification and orchestration workflows
+
+### Mailpit
+
+Mailpit supports local step-up verification email delivery so privileged operations can be tested without a paid external email provider.
+
+## Core Request Flows
+
+### Fraud assessment flow
+
+1. An authenticated client submits a payment risk assessment.
+2. The backend gathers request features and velocity context.
+3. The scoring service computes factors, score, and decision using one immutable profile snapshot.
+4. The backend persists the assessment result together with its profile/ruleset version, normalized inputs, factors, request hash, and optional idempotency key.
+5. If required, it creates or updates payment and case state.
+6. It records outbound events for asynchronous dispatch.
+7. The API returns an explainable decision response immediately.
+
+### Supervisor step-up flow
+
+1. A protected operator requests a step-up token.
+2. The backend persists delivery intent and security state.
+3. A verification email is sent through Mailpit in local development.
+4. The operator verifies the token or verification link.
+5. The backend marks elevated session state and allows protected actions until expiry.
+
+### Outcome feedback flow
+
+1. A supervisor records confirmed ground truth for an assessment from customer confirmation, chargeback, investigation, or another evidence source.
+2. The backend stores the label, loss, recovery, evidence source, operator, and timestamps with optimistic concurrency protection.
+3. Decision-quality analytics join conclusive labels to their original immutable decisions.
+4. Precision, recall, false-positive rate, and net loss become the evidence used for future ruleset promotion.
+
+## Failure Handling
 
 ### Redis unavailable
 
-Fallback:
-- degrade to request-carried features
-- mark assessment confidence lower
-- optionally shift medium-risk outcomes from `ALLOW` to `CHALLENGE`
+The service can still score using request-carried features and persisted configuration, but may lose some low-latency enrichment fidelity.
 
 ### Kafka unavailable
 
-Fallback:
-- return synchronous decision
-- persist outbound payloads in PostgreSQL
-- retry delivery from the outbox on a scheduled dispatcher
-- expose failed delivery counts in operations reporting
+The service still returns the synchronous fraud decision, while outbound events remain durably tracked for retry and operational recovery.
 
-### Rule misconfiguration
+### Mail delivery unavailable
 
-Mitigation:
-- rule versioning
-- replay tests
-- safe rollout flags
+Step-up generation fails visibly and remains auditable through delivery records and operator-facing troubleshooting.
 
-## Security And Privacy
+## Security and Privacy
 
-- never log full PAN-like data
-- never log secrets or tokens
-- prefer generated payment references over sensitive account numbers
-- log why a payment was challenged or held, but not sensitive credentials
-- keep manual review actions auditable
+- operator accounts are persisted in the database, not kept in memory
+- sensitive privileged actions require step-up verification
+- case, payment, and outbound actions are auditable
+- generated references are preferred over sensitive payment instrument data
+- secrets and raw verification tokens should not be treated as loggable business data
+- browser operators use server-side sessions protected by CSRF tokens; passwords are never persisted in browser storage
+- known demo identities are removed by migration and recreated only when the explicit `local` profile enables demo users
+- production datasource credentials have no committed fallback values
+- production machine tokens are validated against a configured issuer and audience, with explicit JWT role-claim mapping
+- fraud case CSV exports are database-bounded to at most 10,000 rows
 
 ## Observability
 
-Metrics to expose:
-- total assessments
-- decision counts by action
-- score distribution
-- challenge rate
-- hold rate
-- decline rate
-- latency p50/p95/p99
-- feature fallback rate
-- outbound event pending count
-- outbound event failed count
+The current backend exposes operational summary views through its APIs, including:
 
-Structured logs should include:
-- paymentId
-- customerId
-- decision
-- score
-- triggered factor codes
+- platform assessment counts
+- review backlog
+- payment lifecycle state
+- outbound delivery health
+- replay posture
+- step-up delivery audit
+- reviewer and queue analytics
+- labelled decision quality, false-positive pressure, and fraud-loss recovery
 
 ## Testing Strategy
 
-- unit tests for scoring rules
-- contract tests for API requests/responses
-- integration tests when Kafka/Redis are bound for real
-- replay-style tests for historical fraud scenarios later
+The current repository is validated through:
 
-## Current Implementation Strategy
+- unit tests for core services and scoring rules
+- Spring Boot application test coverage
+- PostgreSQL 17 Testcontainers coverage for all Flyway migrations, Hibernate validation, and repository behavior
+- Maven verification through `mvn test` and `mvn clean verify`
+- local smoke testing through `docs/smoke-test.md`
+- Angular production build validation for the UI
 
-This repo starts with a single decisioning service because it is the safest way to validate:
-- signal selection
-- scoring semantics
-- API contracts
-- explainability
+## What This Architecture Is Not
 
-Only after those stabilize should we split into multiple deployable services.
+- not a deployed microservice mesh
+- not a card network simulator
+- not a bank-core payment switch
+- not a machine-learning fraud platform
+
+It is a production-oriented modular monolith that demonstrates real fraud decisioning patterns, review workflows, outbound recovery, reviewer operations, and step-up operator security with a usable UI.

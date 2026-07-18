@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class FraudCaseQueryService {
 
     private static final Duration BACKLOG_SLA = Duration.ofHours(24);
+    static final int DEFAULT_EXPORT_LIMIT = 1_000;
+    static final int MAX_EXPORT_LIMIT = 10_000;
 
     private final FraudReviewCaseRepository fraudReviewCaseRepository;
     private final FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository;
@@ -46,10 +49,24 @@ public class FraudCaseQueryService {
     }
 
     @Transactional(readOnly = true)
+    public List<FraudCaseResponse> findAll(FraudCaseFilterCriteria criteria, int page, int size) {
+        validateCriteria(criteria);
+        return findMatchingCases(criteria, page, size).stream()
+            .map(entity -> toResponse(entity, List.of()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
     public String export(FraudCaseFilterCriteria criteria) {
+        return export(criteria, DEFAULT_EXPORT_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public String export(FraudCaseFilterCriteria criteria, int limit) {
         validateCriteria(criteria);
         Instant breachThreshold = breachThreshold();
-        List<FraudReviewCaseEntity> cases = findMatchingCases(criteria);
+        int boundedLimit = Math.min(Math.max(1, limit), MAX_EXPORT_LIMIT);
+        List<FraudReviewCaseEntity> cases = findMatchingCasesForExport(criteria, boundedLimit);
         StringBuilder csv = new StringBuilder()
             .append("case_id,assessment_id,payment_id,customer_id,status,decision,risk_score,current_assignee,created_at,updated_at,breached_sla,resolution_outcome,resolution_summary,summary")
             .append(System.lineSeparator());
@@ -87,11 +104,27 @@ public class FraudCaseQueryService {
         return toResponse(entity, timelineEntries);
     }
 
+    private List<FraudReviewCaseEntity> findMatchingCases(FraudCaseFilterCriteria criteria, int page, int size) {
+        int boundedPage = Math.max(0, page);
+        int boundedSize = Math.min(Math.max(1, size), 200);
+        return fraudReviewCaseRepository.findAll(
+            FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
+            PageRequest.of(boundedPage, boundedSize, Sort.by(Sort.Direction.DESC, "createdAt"))
+        ).getContent();
+    }
+
     private List<FraudReviewCaseEntity> findMatchingCases(FraudCaseFilterCriteria criteria) {
         return fraudReviewCaseRepository.findAll(
             FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
             Sort.by(Sort.Direction.DESC, "createdAt")
         );
+    }
+
+    private List<FraudReviewCaseEntity> findMatchingCasesForExport(FraudCaseFilterCriteria criteria, int limit) {
+        return fraudReviewCaseRepository.findAll(
+            FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"))
+        ).getContent();
     }
 
     private Instant breachThreshold() {
@@ -120,8 +153,16 @@ public class FraudCaseQueryService {
         if (value == null) {
             return "";
         }
-        String rawValue = value.toString().replace("\"", "\"\"");
+        String rawValue = neutralizeSpreadsheetFormula(value.toString()).replace("\"", "\"\"");
         return '"' + rawValue + '"';
+    }
+
+    private String neutralizeSpreadsheetFormula(String value) {
+        String leadingTrimmed = value.stripLeading();
+        if (!leadingTrimmed.isEmpty() && "=+-@".indexOf(leadingTrimmed.charAt(0)) >= 0) {
+            return "'" + value;
+        }
+        return value;
     }
 
     private FraudCaseResponse toResponse(FraudReviewCaseEntity entity, List<FraudCaseTimelineEntryResponse> timelineEntries) {

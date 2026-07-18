@@ -13,12 +13,8 @@ import { OverviewStore } from '../../store/overview.store';
       <header class="page-header">
         <div>
           <p class="eyebrow">Operations overview</p>
-          <h1>Keep the platform readable while the queue keeps moving.</h1>
+          <h1>Fraud operations overview</h1>
         </div>
-        <p class="page-copy">
-          This page compresses queue pressure, scoring posture, and the newest movement across
-          cases and payments into one clean sweep.
-        </p>
       </header>
 
       @if (store.error()) {
@@ -30,7 +26,6 @@ import { OverviewStore } from '../../store/overview.store';
           <article class="metric-tile">
             <span>{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
-            <small>{{ item.note }}</small>
           </article>
         }
       </section>
@@ -169,23 +164,19 @@ export class OverviewPage {
     return [
       {
         label: 'Assessments',
-        value: String(summary.totalAssessments),
-        note: 'All fraud decisions persisted so far.'
+        value: String(summary.totalAssessments)
       },
       {
         label: 'Tracked payments',
-        value: String(summary.totalTrackedPayments),
-        note: 'Payment records currently in the platform.'
+        value: String(summary.totalTrackedPayments)
       },
       {
         label: 'Review backlog',
-        value: String(summary.reviewBacklogCount),
-        note: 'Open plus escalated analyst work.'
+        value: String(summary.reviewBacklogCount)
       },
       {
         label: 'Average risk score',
-        value: `${summary.averageRiskScore ?? 0}`,
-        note: 'Current platform-wide scoring average.'
+        value: `${summary.averageRiskScore ?? 0}`
       }
     ];
   });

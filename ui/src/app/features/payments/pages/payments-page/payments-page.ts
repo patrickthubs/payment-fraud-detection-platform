@@ -13,12 +13,8 @@ import { PaymentsStore } from '../../store/payments.store';
       <header class="page-header">
         <div>
           <p class="eyebrow">Payment lifecycle</p>
-          <h1>Track the decision, then inspect how the payment actually moved.</h1>
+          <h1>Tracked payments</h1>
         </div>
-        <p class="page-copy">
-          The payment table stays dense for scanning, while the selected payment exposes its full
-          transition history without forcing operators into another screen.
-        </p>
       </header>
 
       @if (store.error()) {
@@ -124,9 +120,9 @@ import { PaymentsStore } from '../../store/payments.store';
                   </button>
                 </form>
               </div>
-            }
+          }
           } @else {
-            <p class="detail-copy">Select a tracked payment to inspect its state transitions.</p>
+            <p class="detail-copy">Select a payment to inspect it.</p>
           }
         </aside>
       </section>

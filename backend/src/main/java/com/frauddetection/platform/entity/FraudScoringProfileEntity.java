@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -29,6 +30,12 @@ public class FraudScoringProfileEntity {
     @Column(name = "decline_threshold", nullable = false)
     private int declineThreshold;
 
+    @Column(name = "ruleset_version", nullable = false, length = 80)
+    private String rulesetVersion;
+
+    @Column(name = "rule_definition", nullable = false, length = 12000)
+    private String ruleDefinition;
+
     @Column(name = "change_summary", nullable = false, length = 500)
     private String changeSummary;
 
@@ -50,6 +57,10 @@ public class FraudScoringProfileEntity {
     @Column(name = "activated_at")
     private Instant activatedAt;
 
+    @Version
+    @Column(name = "entity_version", nullable = false)
+    private long entityVersion;
+
     protected FraudScoringProfileEntity() {
     }
 
@@ -68,12 +79,37 @@ public class FraudScoringProfileEntity {
         Instant updatedAt,
         Instant activatedAt
     ) {
+        this(
+            id, versionNumber, profileName, challengeThreshold, holdThreshold, declineThreshold,
+            "rules-v1", "{}", changeSummary, createdBy, activatedBy, active, createdAt, updatedAt, activatedAt
+        );
+    }
+
+    public FraudScoringProfileEntity(
+        UUID id,
+        int versionNumber,
+        String profileName,
+        int challengeThreshold,
+        int holdThreshold,
+        int declineThreshold,
+        String rulesetVersion,
+        String ruleDefinition,
+        String changeSummary,
+        String createdBy,
+        String activatedBy,
+        boolean active,
+        Instant createdAt,
+        Instant updatedAt,
+        Instant activatedAt
+    ) {
         this.id = id;
         this.versionNumber = versionNumber;
         this.profileName = profileName;
         this.challengeThreshold = challengeThreshold;
         this.holdThreshold = holdThreshold;
         this.declineThreshold = declineThreshold;
+        this.rulesetVersion = rulesetVersion;
+        this.ruleDefinition = ruleDefinition;
         this.changeSummary = changeSummary;
         this.createdBy = createdBy;
         this.activatedBy = activatedBy;
@@ -105,6 +141,14 @@ public class FraudScoringProfileEntity {
 
     public int getDeclineThreshold() {
         return declineThreshold;
+    }
+
+    public String getRulesetVersion() {
+        return rulesetVersion;
+    }
+
+    public String getRuleDefinition() {
+        return ruleDefinition;
     }
 
     public String getChangeSummary() {

@@ -19,6 +19,9 @@ import {
   FraudScoringThresholds,
   FraudSimulationComparisonResponse,
   FraudSimulationResponse,
+  FraudOutcome,
+  FraudOutcomeRequest,
+  FraudQualityMetrics,
   PaymentRiskAssessmentRequest,
   PaymentRiskAssessmentResponse,
   PaymentStatus,
@@ -35,6 +38,14 @@ export class FraudApiService {
 
   getSummary(): Observable<FraudOperationsSummary> {
     return this.http.get<FraudOperationsSummary>('/api/v1/fraud-operations/summary');
+  }
+
+  getQualityMetrics(): Observable<FraudQualityMetrics> {
+    return this.http.get<FraudQualityMetrics>('/api/v1/fraud-outcomes/quality-metrics');
+  }
+
+  recordOutcome(assessmentId: string, request: FraudOutcomeRequest): Observable<FraudOutcome> {
+    return this.http.post<FraudOutcome>(`/api/v1/fraud-outcomes/assessments/${assessmentId}`, request);
   }
 
   listCases(filters: FraudCaseFilters = {}): Observable<FraudCase[]> {
@@ -112,7 +123,9 @@ export class FraudApiService {
   createAssessment(
     payload: PaymentRiskAssessmentRequest
   ): Observable<PaymentRiskAssessmentResponse> {
-    return this.http.post<PaymentRiskAssessmentResponse>('/api/v1/fraud-assessments', payload);
+    return this.http.post<PaymentRiskAssessmentResponse>('/api/v1/fraud-assessments', payload, {
+      headers: { 'Idempotency-Key': crypto.randomUUID() }
+    });
   }
 
   listProfiles(): Observable<FraudScoringProfile[]> {

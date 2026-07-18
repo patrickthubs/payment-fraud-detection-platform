@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface FraudReviewCaseRepository extends JpaRepository<FraudReviewCaseEntity, UUID>, JpaSpecificationExecutor<FraudReviewCaseEntity> {
 
+    java.util.Optional<FraudReviewCaseEntity> findByAssessmentId(UUID assessmentId);
+
     List<FraudReviewCaseEntity> findAllByOrderByCreatedAtDesc();
 
     long countByStatusIn(List<ReviewCaseStatus> statuses);

@@ -22,8 +22,16 @@ spring:
       repositories:
         enabled: false
 
+management:
+  health:
+    redis:
+      enabled: false
+
 fraud:
   security:
+    demo-users-enabled: true
+    machine-auth:
+      mode: basic
     step-up:
       token-validity: 5m
       session-validity: 10m
