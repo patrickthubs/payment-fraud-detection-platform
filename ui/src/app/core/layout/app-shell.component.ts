@@ -47,10 +47,10 @@ export class AppShellComponent {
   private readonly router = inject(Router);
 
   protected readonly navItems = [
-    { label: 'Overview', path: '/overview' },
+    { label: 'Command Center', path: '/command-center' },
     { label: 'Cases', path: '/cases' },
+    { label: 'Rules Studio', path: '/rules-studio' },
     { label: 'Payments', path: '/payments' },
-    { label: 'Simulation Lab', path: '/simulations' },
     { label: 'Decision Quality', path: '/quality' },
     { label: 'Operations', path: '/operations' }
   ] as const;

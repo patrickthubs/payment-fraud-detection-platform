@@ -94,7 +94,7 @@ export class LoginPage {
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: () => {
-          void this.router.navigateByUrl('/overview');
+          void this.router.navigateByUrl('/command-center');
         },
         error: () => {
           this.error.set('Login failed. Use one of the persisted demo operators and try again.');

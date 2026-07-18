@@ -165,7 +165,7 @@ public class FraudAssessmentController {
         @Valid @RequestBody FraudSimulationComparisonRequest request
     ) {
         FraudScoringProfile baselineProfile = fraudSimulationService.activeProfile();
-        FraudScoringProfile overrideProfile = fraudSimulationService.mergeOverrides(request.overrides());
+        FraudScoringProfile overrideProfile = fraudSimulationService.mergeOverrides(request.overrides(), request.rules());
         FraudSimulationResult baselineResult = fraudSimulationService.simulate(request.scenario(), baselineProfile);
         FraudSimulationResult overrideResult = fraudSimulationService.simulate(request.scenario(), overrideProfile);
         FraudSimulationOutcomeResponse baselineOutcome = toOutcomeResponse(baselineProfile, baselineResult);
@@ -260,9 +260,9 @@ public class FraudAssessmentController {
         FraudSimulationOutcomeResponse overrideOutcome
     ) {
         if (baselineOutcome.decision() == overrideOutcome.decision()) {
-            return "Override thresholds did not change the projected fraud decision for this scenario.";
+            return "Candidate policy did not change the projected fraud decision for this scenario.";
         }
-        return "Projected decision changed from %s to %s under the override thresholds."
+        return "Projected decision changed from %s to %s under the candidate policy."
             .formatted(baselineOutcome.decision(), overrideOutcome.decision());
     }
 }

@@ -183,13 +183,18 @@ The Angular UI is not a static demo. It is an operator console for the backend c
 Current route areas:
 
 - login
+- command center
 - overview
 - cases
 - payments
+- rules studio
 - simulations
+- decision quality
 - operations
 
-The UI stays table-first for operational workflows and uses routeable pages so queue review, payment inspection, simulation work, and operational recovery do not collapse into one long screen.
+The UI stays table-first for operational workflows and uses routeable pages so command-center triage, queue review, payment inspection, rules work, simulation work, decision-quality labelling, and operational recovery do not collapse into one long screen.
+
+The Command Center is the default day-to-day operator surface. It combines backlog pressure, active policy posture, priority cases, held payments, and quality signals into one actionable screen. The Risk Rules Studio is separated because threshold/rule promotion is a supervisor workflow with higher blast radius than normal case review.
 
 ## Data Ownership and Infrastructure
 

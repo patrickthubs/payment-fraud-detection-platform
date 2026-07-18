@@ -58,7 +58,7 @@ This project models that style of decisioning with a transparent rules-based eng
 
 Current implementation:
 - `backend`: single Spring Boot 4 service for fraud assessment, case management, payment lifecycle, replay batches, scoring profiles, outbound operations, reviewer analytics, and step-up security
-- `ui`: Angular operator console for overview, cases, payments, simulations, and operations
+- `ui`: Angular operator console for the Fraud Operations Command Center, case review, payments, Risk Rules Studio, simulations, decision quality, and recovery operations
 
 Supporting infrastructure:
 - Kafka for payment and decision events
@@ -67,6 +67,15 @@ Supporting infrastructure:
 
 See [docs/architecture.md](C:/Users/ntsatsi.thubakgale/NEW_PROJECTS/payment-fraud-detection-platform/docs/architecture.md) for the detailed design.
 See [docs/api-workflows.md](C:/Users/ntsatsi.thubakgale/NEW_PROJECTS/payment-fraud-detection-platform/docs/api-workflows.md) for endpoint-level testing flows.
+
+## Product Surfaces
+
+The UI now behaves like a follow-up fraud operations product rather than a backend demo:
+
+- `Command Center`: the default operator screen for live backlog pressure, priority review cases, payment holds, active policy posture, and quick case actions.
+- `Rules Studio`: a supervisor workbench for creating threshold and rule-weight policy drafts, comparing a candidate policy against the live policy, and activating saved versions.
+- `Decision Quality`: ground-truth labelling and precision/recall feedback so policy tuning is based on confirmed outcomes rather than guesses.
+- `Operations`: outbound event recovery, replay batches, and step-up delivery audit.
 
 ## Tech Stack
 

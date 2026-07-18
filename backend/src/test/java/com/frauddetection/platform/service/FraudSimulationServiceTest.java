@@ -7,11 +7,13 @@ import static org.mockito.Mockito.when;
 import com.frauddetection.platform.config.FraudScoringProperties;
 import com.frauddetection.platform.dto.FraudScoringOverrideRequest;
 import com.frauddetection.platform.dto.PaymentRiskAssessmentRequest;
+import com.frauddetection.platform.model.FraudRuleSet;
 import com.frauddetection.platform.model.PaymentStatus;
 import com.frauddetection.platform.model.RiskDecision;
 import com.frauddetection.platform.model.VelocitySource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -105,5 +107,36 @@ class FraudSimulationServiceTest {
         assertThat(mergedProfile.challengeThreshold()).isEqualTo(40);
         assertThat(mergedProfile.holdThreshold()).isEqualTo(65);
         assertThat(mergedProfile.declineThreshold()).isEqualTo(90);
+    }
+
+    @Test
+    void mergesCandidateRulesOntoActiveProfile() {
+        FraudRuleSet candidateRules = new FraudRuleSet(
+            BigDecimal.valueOf(2),
+            30,
+            3,
+            25,
+            BigDecimal.valueOf(6),
+            20,
+            14,
+            30,
+            12,
+            18,
+            16,
+            Set.of("CRYPTO"),
+            20,
+            22
+        );
+
+        FraudScoringProfile mergedProfile = fraudSimulationService.mergeOverrides(
+            new FraudScoringOverrideRequest(null, null, null),
+            candidateRules
+        );
+
+        assertThat(mergedProfile.rulesetVersion()).isEqualTo("candidate-rules");
+        assertThat(mergedProfile.rules()).isEqualTo(candidateRules);
+        assertThat(mergedProfile.challengeThreshold()).isEqualTo(45);
+        assertThat(mergedProfile.holdThreshold()).isEqualTo(65);
+        assertThat(mergedProfile.declineThreshold()).isEqualTo(85);
     }
 }

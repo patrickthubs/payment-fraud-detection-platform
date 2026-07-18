@@ -22,6 +22,7 @@ import {
   FraudOutcome,
   FraudOutcomeRequest,
   FraudQualityMetrics,
+  FraudRuleSet,
   PaymentRiskAssessmentRequest,
   PaymentRiskAssessmentResponse,
   PaymentStatus,
@@ -109,13 +110,15 @@ export class FraudApiService {
 
   compareAssessment(
     payload: PaymentRiskAssessmentRequest,
-    thresholds: FraudScoringThresholds
+    thresholds: FraudScoringThresholds,
+    rules?: FraudRuleSet
   ): Observable<FraudSimulationComparisonResponse> {
     return this.http.post<FraudSimulationComparisonResponse>(
       '/api/v1/fraud-assessments/simulations/compare',
       {
         scenario: payload,
-        overrides: thresholds
+        overrides: thresholds,
+        rules
       }
     );
   }

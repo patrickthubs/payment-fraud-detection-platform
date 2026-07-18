@@ -2,6 +2,7 @@ package com.frauddetection.platform.service;
 
 import com.frauddetection.platform.dto.FraudScoringOverrideRequest;
 import com.frauddetection.platform.dto.PaymentRiskAssessmentRequest;
+import com.frauddetection.platform.model.FraudRuleSet;
 import com.frauddetection.platform.model.PaymentStatus;
 import com.frauddetection.platform.model.RiskDecision;
 import io.micrometer.core.instrument.Timer;
@@ -46,11 +47,17 @@ public class FraudSimulationService {
     }
 
     public FraudScoringProfile mergeOverrides(FraudScoringOverrideRequest overrides) {
+        return mergeOverrides(overrides, null);
+    }
+
+    public FraudScoringProfile mergeOverrides(FraudScoringOverrideRequest overrides, FraudRuleSet candidateRules) {
         FraudScoringProfile baseProfile = activeProfile();
         return new FraudScoringProfile(
             overrides.challengeThreshold() != null ? overrides.challengeThreshold() : baseProfile.challengeThreshold(),
             overrides.holdThreshold() != null ? overrides.holdThreshold() : baseProfile.holdThreshold(),
-            overrides.declineThreshold() != null ? overrides.declineThreshold() : baseProfile.declineThreshold()
+            overrides.declineThreshold() != null ? overrides.declineThreshold() : baseProfile.declineThreshold(),
+            candidateRules == null ? baseProfile.rulesetVersion() : "candidate-rules",
+            candidateRules == null ? baseProfile.rules() : candidateRules
         );
     }
 

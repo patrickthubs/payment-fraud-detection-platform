@@ -131,6 +131,11 @@ a {
   align-items: end;
 }
 
+.page-header--split {
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+}
+
 h1,
 h2,
 h3,
@@ -175,6 +180,10 @@ h2 {
   gap: 1rem;
 }
 
+.metric-grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .metric-tile,
 .table-panel,
 .detail-panel,
@@ -212,6 +221,20 @@ dt {
 
 .content-grid--wide {
   grid-template-columns: 1.5fr 0.9fr;
+}
+
+.command-layout,
+.rules-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.command-layout {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+}
+
+.rules-layout {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
 }
 
 .table-panel,
@@ -262,6 +285,10 @@ dt {
   margin-top: 1rem;
 }
 
+.definition-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .definition-grid dd {
   margin: 0.35rem 0 0;
 }
@@ -270,6 +297,11 @@ dt {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.25rem;
+}
+
+.timeline--compact {
+  max-height: 19rem;
+  overflow: auto;
 }
 
 .timeline__item {
@@ -313,7 +345,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.78rem 0.9rem;
   border: 1px solid var(--line);
@@ -324,9 +357,15 @@ select {
 
 input:focus,
 select:focus,
+textarea:focus,
 button:focus {
   outline: 2px solid rgba(119, 224, 198, 0.55);
   outline-offset: 2px;
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
 }
 
 .toggle {
@@ -377,12 +416,62 @@ button:focus {
   margin-top: 1rem;
 }
 
+.button-row--inline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .inline-error {
   padding: 0.85rem 1rem;
   border: 1px solid rgba(255, 143, 143, 0.32);
   border-radius: 1rem;
   background: rgba(255, 143, 143, 0.08);
   color: #ffd0d0;
+}
+
+.inline-success {
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(119, 224, 198, 0.28);
+  border-radius: 1rem;
+  background: rgba(119, 224, 198, 0.08);
+  color: #cdf7ee;
+}
+
+.command-center__posture,
+.comparison-strip {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.command-center__posture {
+  justify-items: end;
+  color: var(--text-muted);
+}
+
+.command-center__posture strong {
+  color: var(--text);
+}
+
+.comparison-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1rem 0;
+}
+
+.comparison-strip div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.comparison-strip span,
+.comparison-strip small {
+  color: var(--text-muted);
+}
+
+.comparison-strip strong {
+  font-size: 1.4rem;
 }
 
 .login-page {
@@ -434,9 +523,13 @@ button:focus {
 @media (max-width: 1100px) {
   .shell__header,
   .page-header,
+  .page-header--split,
   .content-grid,
   .content-grid--wide,
+  .command-layout,
+  .rules-layout,
   .metric-grid,
+  .metric-grid--five,
   .filter-grid,
   .lab-grid,
   .login-page {
@@ -447,8 +540,13 @@ button:focus {
     justify-items: start;
   }
 
+  .command-center__posture {
+    justify-items: start;
+  }
+
   .form-grid--three,
-  .definition-grid {
+  .definition-grid,
+  .definition-grid--three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -460,7 +558,10 @@ button:focus {
   }
 
   .form-grid--three,
-  .definition-grid {
+  .definition-grid,
+  .definition-grid--three,
+  .button-row--inline,
+  .comparison-strip {
     grid-template-columns: 1fr;
   }
 

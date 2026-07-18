@@ -17,12 +17,17 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'overview'
+        redirectTo: 'command-center'
       },
       {
         path: 'overview',
         loadChildren: () =>
           import('./features/overview/overview.routes').then((m) => m.OVERVIEW_ROUTES)
+      },
+      {
+        path: 'command-center',
+        loadChildren: () =>
+          import('./features/command-center/command-center.routes').then((m) => m.COMMAND_CENTER_ROUTES)
       },
       {
         path: 'cases',
@@ -48,6 +53,11 @@ export const routes: Routes = [
         path: 'quality',
         loadChildren: () =>
           import('./features/quality/quality.routes').then((m) => m.QUALITY_ROUTES)
+      },
+      {
+        path: 'rules-studio',
+        loadChildren: () =>
+          import('./features/rules-studio/rules-studio.routes').then((m) => m.RULES_STUDIO_ROUTES)
       }
     ]
   },

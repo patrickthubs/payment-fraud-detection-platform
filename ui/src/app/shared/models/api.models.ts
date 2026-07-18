@@ -63,12 +63,30 @@ export interface FraudScoringThresholds {
   declineThreshold: number;
 }
 
+export interface FraudRuleSet {
+  amountSpikeMultiplier: number;
+  amountSpikeWeight: number;
+  velocityCountThreshold: number;
+  velocityWeight: number;
+  spendBurstMultiplier: number;
+  spendBurstWeight: number;
+  newDeviceWeight: number;
+  impossibleTravelWeight: number;
+  beneficiaryAgeHoursThreshold: number;
+  newBeneficiaryWeight: number;
+  recentPasswordResetWeight: number;
+  riskyMerchantCategories: string[];
+  riskyMerchantWeight: number;
+  highRiskCountryWeight: number;
+}
+
 export interface FraudScoringProfileCreateRequest {
   profileName: string;
   challengeThreshold: number;
   holdThreshold: number;
   declineThreshold: number;
   changeSummary: string;
+  rules?: FraudRuleSet;
 }
 
 export interface FraudScoringProfile {
@@ -78,6 +96,8 @@ export interface FraudScoringProfile {
   active: boolean;
   systemDefault: boolean;
   thresholds: FraudScoringThresholds;
+  rulesetVersion: string;
+  rules: FraudRuleSet;
   changeSummary: string;
   createdBy: string;
   createdAt: string;
