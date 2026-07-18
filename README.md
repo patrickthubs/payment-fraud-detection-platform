@@ -250,7 +250,6 @@ curl -u analyst.one:local-analyst-2026 http://localhost:8080/api/v1/payments/PAY
 - retry a protected endpoint such as `/api/v1/fraud-cases/export`
 
 For a longer guided walkthrough, use [docs/api-workflows.md](C:/Users/ntsatsi.thubakgale/NEW_PROJECTS/payment-fraud-detection-platform/docs/api-workflows.md).
-The repository also includes a GitHub Actions smoke workflow at `.github/workflows/backend-smoke.yml` so each push and pull request reruns backend verification on a clean machine.
 
 ## API Areas
 

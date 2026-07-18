@@ -9,6 +9,7 @@ backend/target/
 
 # Logs
 *.log
+*.err
 
 # OS
 Thumbs.db
