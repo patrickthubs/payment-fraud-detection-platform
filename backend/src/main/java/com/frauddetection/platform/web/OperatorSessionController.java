@@ -1,7 +1,9 @@
 package com.frauddetection.platform.web;
 
+import com.frauddetection.platform.dto.OperatorOrganizationResponse;
 import com.frauddetection.platform.dto.OperatorLoginRequest;
 import com.frauddetection.platform.dto.OperatorSessionResponse;
+import com.frauddetection.platform.service.FraudOperatorPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -74,6 +76,16 @@ public class OperatorSessionController {
             .map(authority -> authority.getAuthority())
             .sorted()
             .toList();
-        return new OperatorSessionResponse(authentication.getName(), authorities);
+        OperatorOrganizationResponse organization = null;
+        if (authentication.getPrincipal() instanceof FraudOperatorPrincipal principal) {
+            organization = new OperatorOrganizationResponse(
+                principal.organizationId(),
+                principal.organizationSlug(),
+                principal.organizationName(),
+                principal.organizationPlanCode(),
+                principal.organizationStatus()
+            );
+        }
+        return new OperatorSessionResponse(authentication.getName(), authorities, organization);
     }
 }

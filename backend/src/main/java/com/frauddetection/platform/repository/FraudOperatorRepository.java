@@ -8,6 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FraudOperatorRepository extends JpaRepository<FraudOperatorEntity, UUID> {
 
-    @EntityGraph(attributePaths = "roles")
+    @EntityGraph(attributePaths = {"roles", "organization"})
     Optional<FraudOperatorEntity> findByUsernameIgnoreCase(String username);
 }

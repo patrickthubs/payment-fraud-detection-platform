@@ -60,7 +60,7 @@ class PostgreSqlUpgradeMigrationIntegrationTest {
             .load()
             .migrate();
 
-        assertThat(result.targetSchemaVersion).hasToString("15");
+        assertThat(result.targetSchemaVersion).hasToString("16");
         try (var connection = DriverManager.getConnection(
             POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()
         ); var statement = connection.createStatement(); var rows = statement.executeQuery("""
@@ -70,6 +70,16 @@ class PostgreSqlUpgradeMigrationIntegrationTest {
             """)) {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getInt(1)).isZero();
+        }
+        try (var connection = DriverManager.getConnection(
+            POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()
+        ); var statement = connection.createStatement(); var rows = statement.executeQuery("""
+            select count(*)
+            from fraud_organizations
+            where slug = 'signal-desk-demo'
+            """)) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getInt(1)).isOne();
         }
     }
 }

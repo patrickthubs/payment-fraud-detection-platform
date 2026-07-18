@@ -64,6 +64,7 @@ class PaymentFraudApplicationTests {
         );
         assertThat(HttpStatus.valueOf(loginResponse.statusCode())).isEqualTo(HttpStatus.OK);
         assertThat(loginResponse.body()).contains("analyst.one").doesNotContain("local-analyst-2026");
+        assertThat(loginResponse.body()).contains("Signal Desk Demo Bank");
 
         HttpStatus authenticatedStatus = send(
             sessionClient,

@@ -6,6 +6,13 @@ export interface AuthCredentials {
 export interface AuthSession {
   username: string;
   authorities: string[];
+  organization: {
+    organizationId: string;
+    slug: string;
+    displayName: string;
+    planCode: string;
+    status: string;
+  } | null;
 }
 
 export interface FraudOutcomeRequest {

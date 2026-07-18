@@ -4,6 +4,7 @@ import java.util.List;
 
 public record OperatorSessionResponse(
     String username,
-    List<String> authorities
+    List<String> authorities,
+    OperatorOrganizationResponse organization
 ) {
 }

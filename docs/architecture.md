@@ -161,6 +161,7 @@ Representative code:
 Owns:
 
 - persisted operators and roles
+- organization membership for tenant-aware operator sessions
 - server-side browser sessions with CSRF protection
 - OAuth2 JWT bearer authentication for production machine clients
 - HTTP Basic authentication restricted to local and test configuration
@@ -211,10 +212,17 @@ PostgreSQL is the system of record for:
 - scoring profiles
 - outbound delivery records
 - operators and roles
+- organizations and operator organization membership
 - step-up delivery audit and operator security state
 - fraud outcome labels, monetary loss, and recovery evidence
 
 Schema evolution is handled through Flyway migrations under `backend/src/main/resources/db/migration`.
+
+### Organization Boundary
+
+`fraud_organizations` is the commercial SaaS tenant anchor. Operators now belong to one organization, and authenticated sessions expose that organization context to the Angular console.
+
+This is deliberately a foundation rather than a half-finished promise of full multi-tenancy. The remaining business records still need `organization_id` columns and tenant-scoped repository methods before this can safely host multiple paying customers in one shared database.
 
 ### Redis
 
@@ -285,6 +293,7 @@ Step-up generation fails visibly and remains auditable through delivery records 
 ## Security and Privacy
 
 - operator accounts are persisted in the database, not kept in memory
+- operator sessions include organization context, giving the product a stable tenant boundary for the next isolation pass
 - sensitive privileged actions require step-up verification
 - case, payment, and outbound actions are auditable
 - generated references are preferred over sensitive payment instrument data
@@ -325,5 +334,6 @@ The current repository is validated through:
 - not a card network simulator
 - not a bank-core payment switch
 - not a machine-learning fraud platform
+- not yet a fully tenant-isolated commercial SaaS datastore
 
-It is a production-oriented modular monolith that demonstrates real fraud decisioning patterns, review workflows, outbound recovery, reviewer operations, and step-up operator security with a usable UI.
+It is a production-oriented modular monolith that demonstrates real fraud decisioning patterns, review workflows, outbound recovery, reviewer operations, organization-aware operator access, and step-up operator security with a usable UI.

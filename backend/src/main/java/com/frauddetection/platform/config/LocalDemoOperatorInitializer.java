@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(name = "fraud.security.demo-users-enabled", havingValue = "true")
 public class LocalDemoOperatorInitializer implements ApplicationRunner {
 
+    private static final UUID DEMO_ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private static final List<DemoOperator> OPERATORS = List.of(
         new DemoOperator(
             UUID.fromString("f1000000-0000-0000-0000-000000000001"),
@@ -62,6 +64,7 @@ public class LocalDemoOperatorInitializer implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         Timestamp now = Timestamp.from(clock.instant());
+        ensureDemoOrganization(now);
         for (DemoOperator operator : OPERATORS) {
             if (operatorExists(operator.username())) {
                 continue;
@@ -69,11 +72,12 @@ public class LocalDemoOperatorInitializer implements ApplicationRunner {
             jdbcTemplate.update(
                 """
                     insert into fraud_operators (
-                        id, username, display_name, password_hash, active, account_non_locked,
+                        id, organization_id, username, display_name, password_hash, active, account_non_locked,
                         created_at, updated_at, email, step_up_delivery_channel
-                    ) values (?, ?, ?, ?, true, true, ?, ?, ?, 'EMAIL')
+                    ) values (?, ?, ?, ?, ?, true, true, ?, ?, ?, 'EMAIL')
                     """,
                 operator.id(),
+                DEMO_ORGANIZATION_ID,
                 operator.username(),
                 operator.displayName(),
                 operator.passwordHash(),
@@ -90,6 +94,27 @@ public class LocalDemoOperatorInitializer implements ApplicationRunner {
                 );
             }
         }
+    }
+
+    private void ensureDemoOrganization(Timestamp now) {
+        Integer count = jdbcTemplate.queryForObject(
+            "select count(*) from fraud_organizations where id = ?",
+            Integer.class,
+            DEMO_ORGANIZATION_ID
+        );
+        if (count != null && count > 0) {
+            return;
+        }
+        jdbcTemplate.update(
+            """
+                insert into fraud_organizations (
+                    id, slug, display_name, plan_code, status, created_at, updated_at
+                ) values (?, 'signal-desk-demo', 'Signal Desk Demo Bank', 'LOCAL_DEMO', 'ACTIVE', ?, ?)
+                """,
+            DEMO_ORGANIZATION_ID,
+            now,
+            now
+        );
     }
 
     private boolean operatorExists(String username) {

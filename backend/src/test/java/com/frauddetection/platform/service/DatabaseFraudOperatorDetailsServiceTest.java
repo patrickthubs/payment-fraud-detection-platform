@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.frauddetection.platform.entity.FraudOperatorEntity;
+import com.frauddetection.platform.entity.FraudOrganizationEntity;
 import com.frauddetection.platform.entity.FraudOperatorRoleEntity;
 import com.frauddetection.platform.repository.FraudOperatorRepository;
 import java.time.Instant;
@@ -48,11 +49,48 @@ class DatabaseFraudOperatorDetailsServiceTest {
         var userDetails = databaseFraudOperatorDetailsService.loadUserByUsername("senior.analyst");
 
         assertThat(userDetails.getUsername()).isEqualTo("senior.analyst");
+        assertThat(userDetails).isInstanceOf(FraudOperatorPrincipal.class);
+        assertThat(((FraudOperatorPrincipal) userDetails).organizationSlug()).isEqualTo("signal-desk-demo");
         assertThat(userDetails.getPassword()).startsWith("{bcrypt}");
         assertThat(userDetails.isEnabled()).isTrue();
         assertThat(userDetails.isAccountNonLocked()).isTrue();
         assertThat(userDetails.getAuthorities()).extracting("authority")
             .containsExactlyInAnyOrder("ROLE_FRAUD_ANALYST", "ROLE_FRAUD_SUPERVISOR");
+    }
+
+    @Test
+    void loadsOperatorTenantContextIntoPrincipal() {
+        Instant timestamp = Instant.parse("2026-07-17T08:00:00Z");
+        FraudOrganizationEntity organization = new FraudOrganizationEntity(
+            UUID.fromString("f2000000-0000-0000-0000-000000000099"),
+            "merchant-risk-co",
+            "Merchant Risk Co",
+            "GROWTH",
+            "ACTIVE",
+            timestamp,
+            timestamp
+        );
+        FraudOperatorEntity operator = new FraudOperatorEntity(
+            UUID.fromString("f1000000-0000-0000-0000-000000000199"),
+            "tenant.analyst",
+            "Tenant Analyst",
+            "{bcrypt}$2a$10$placeholderplaceholderplaceholderplaceholderplaceholder",
+            true,
+            true,
+            "tenant.analyst@example.com",
+            com.frauddetection.platform.model.StepUpDeliveryChannel.EMAIL,
+            organization,
+            timestamp,
+            timestamp,
+            Set.of(new FraudOperatorRoleEntity("FRAUD_ANALYST", "Analyst"))
+        );
+        when(fraudOperatorRepository.findByUsernameIgnoreCase("tenant.analyst")).thenReturn(Optional.of(operator));
+
+        var principal = (FraudOperatorPrincipal) databaseFraudOperatorDetailsService.loadUserByUsername("tenant.analyst");
+
+        assertThat(principal.organizationId()).isEqualTo(organization.getId());
+        assertThat(principal.organizationName()).isEqualTo("Merchant Risk Co");
+        assertThat(principal.organizationPlanCode()).isEqualTo("GROWTH");
     }
 
     @Test

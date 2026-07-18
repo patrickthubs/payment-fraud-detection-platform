@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -45,6 +46,10 @@ public class FraudOperatorEntity {
     @Enumerated(EnumType.STRING)
     private StepUpDeliveryChannel stepUpDeliveryChannel;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private FraudOrganizationEntity organization;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -75,6 +80,44 @@ public class FraudOperatorEntity {
         Instant updatedAt,
         Set<FraudOperatorRoleEntity> roles
     ) {
+        this(
+            id,
+            username,
+            displayName,
+            passwordHash,
+            active,
+            accountNonLocked,
+            email,
+            stepUpDeliveryChannel,
+            new FraudOrganizationEntity(
+                UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+                "signal-desk-demo",
+                "Signal Desk Demo Bank",
+                "LOCAL_DEMO",
+                "ACTIVE",
+                createdAt,
+                updatedAt
+            ),
+            createdAt,
+            updatedAt,
+            roles
+        );
+    }
+
+    public FraudOperatorEntity(
+        UUID id,
+        String username,
+        String displayName,
+        String passwordHash,
+        boolean active,
+        boolean accountNonLocked,
+        String email,
+        StepUpDeliveryChannel stepUpDeliveryChannel,
+        FraudOrganizationEntity organization,
+        Instant createdAt,
+        Instant updatedAt,
+        Set<FraudOperatorRoleEntity> roles
+    ) {
         this.id = id;
         this.username = username;
         this.displayName = displayName;
@@ -83,6 +126,7 @@ public class FraudOperatorEntity {
         this.accountNonLocked = accountNonLocked;
         this.email = email;
         this.stepUpDeliveryChannel = stepUpDeliveryChannel;
+        this.organization = organization;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.roles = new LinkedHashSet<>(roles);
@@ -108,6 +152,15 @@ public class FraudOperatorEntity {
             accountNonLocked,
             username + "@internal.local",
             StepUpDeliveryChannel.EMAIL,
+            new FraudOrganizationEntity(
+                UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+                "signal-desk-demo",
+                "Signal Desk Demo Bank",
+                "LOCAL_DEMO",
+                "ACTIVE",
+                createdAt,
+                updatedAt
+            ),
             createdAt,
             updatedAt,
             roles
@@ -144,6 +197,10 @@ public class FraudOperatorEntity {
 
     public StepUpDeliveryChannel getStepUpDeliveryChannel() {
         return stepUpDeliveryChannel;
+    }
+
+    public FraudOrganizationEntity getOrganization() {
+        return organization;
     }
 
     public Instant getCreatedAt() {

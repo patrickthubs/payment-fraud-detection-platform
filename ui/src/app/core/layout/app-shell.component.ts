@@ -29,6 +29,9 @@ import { AuthStateService } from '../auth/auth-state.service';
         <div class="shell__operator">
           <span class="shell__operator-label">Signed in</span>
           <strong>{{ authState.username() }}</strong>
+          @if (authState.organizationName(); as organizationName) {
+            <span class="shell__organization">{{ organizationName }}</span>
+          }
           <button class="button button--ghost" type="button" (click)="logout()">
             Log out
           </button>

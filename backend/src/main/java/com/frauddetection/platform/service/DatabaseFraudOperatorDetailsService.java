@@ -30,11 +30,15 @@ public class DatabaseFraudOperatorDetailsService implements UserDetailsService {
             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode()))
             .toList();
 
-        return User.withUsername(operator.getUsername())
-            .password(operator.getPasswordHash())
-            .authorities(authorities)
-            .accountLocked(!operator.isAccountNonLocked())
-            .disabled(!operator.isActive())
-            .build();
+        return new FraudOperatorPrincipal(
+            operator.getUsername(),
+            operator.getPasswordHash(),
+            operator.isActive(),
+            true,
+            true,
+            operator.isAccountNonLocked(),
+            authorities,
+            operator.getOrganization()
+        );
     }
 }

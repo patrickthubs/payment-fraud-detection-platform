@@ -54,7 +54,12 @@ class PostgreSqlMigrationIntegrationTest {
             Integer.class
         );
 
-        assertThat(successfulMigrations).isEqualTo(15);
+        assertThat(successfulMigrations).isEqualTo(16);
+        Integer organizations = jdbcTemplate.queryForObject(
+            "select count(*) from fraud_organizations",
+            Integer.class
+        );
+        assertThat(organizations).isEqualTo(1);
 
         Instant now = Instant.parse("2026-07-18T10:00:00Z");
         FraudScoringProfileEntity profile = fraudScoringProfileRepository.saveAndFlush(

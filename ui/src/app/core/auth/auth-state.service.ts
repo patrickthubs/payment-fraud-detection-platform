@@ -11,6 +11,7 @@ export class AuthStateService {
   readonly session = signal<AuthSession | null>(null);
   readonly isAuthenticated = computed(() => this.session() !== null);
   readonly username = computed(() => this.session()?.username ?? '');
+  readonly organizationName = computed(() => this.session()?.organization?.displayName ?? '');
 
   readonly demoAccounts = [
     {

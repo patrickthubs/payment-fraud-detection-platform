@@ -77,6 +77,17 @@ The UI now behaves like a follow-up fraud operations product rather than a backe
 - `Decision Quality`: ground-truth labelling and precision/recall feedback so policy tuning is based on confirmed outcomes rather than guesses.
 - `Operations`: outbound event recovery, replay batches, and step-up delivery audit.
 
+## SaaS Foundation
+
+The platform now has an explicit organization boundary for commercial SaaS evolution:
+
+- `fraud_organizations` stores tenant identity, plan code, lifecycle status, and timestamps.
+- every persisted operator belongs to exactly one organization through `fraud_operators.organization_id`.
+- authenticated browser sessions return the operator's organization metadata so the UI and future APIs have a stable tenant context.
+- the local demo runs under `Signal Desk Demo Bank`, while production can seed real organizations without carrying reusable demo operators.
+
+This is the first tenant anchor. The next production hardening pass should add `organization_id` to assessments, payments, cases, outcomes, replay batches, outbound events, and step-up audit records, then enforce tenant-scoped repository queries at every data boundary.
+
 ## Tech Stack
 
 - Java 26
@@ -651,6 +662,9 @@ curl -X POST http://localhost:8080/api/v1/security/step-up/revoke ^
 
 ## Roadmap
 
+- add full tenant-scoped data isolation across assessments, payments, cases, outcomes, replays, outbound events, and audit records
+- add organization onboarding, invitations, plan limits, and admin user management
+- add Stripe or Paddle billing for plans, trials, invoices, and usage limits
 - integrate production email delivery with dedicated provider configuration and delivery observability
 - add device, beneficiary, merchant, account, and IP relationship analysis for linked fraud-ring investigations
 - publish small Java and TypeScript integration SDKs after the idempotency and outcome contracts stabilize
