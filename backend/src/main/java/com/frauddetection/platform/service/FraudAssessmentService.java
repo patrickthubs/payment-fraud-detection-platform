@@ -39,6 +39,7 @@ public class FraudAssessmentService {
     private final PaymentLifecycleService paymentLifecycleService;
     private final PlatformMetricsService platformMetricsService;
     private final FraudNotificationHookService fraudNotificationHookService;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
@@ -50,12 +51,13 @@ public class FraudAssessmentService {
         FraudAssessmentEventPublisher fraudAssessmentEventPublisher,
         PaymentLifecycleService paymentLifecycleService,
         PlatformMetricsService platformMetricsService,
-        FraudNotificationHookService fraudNotificationHookService
+        FraudNotificationHookService fraudNotificationHookService,
+        CurrentTenantService currentTenantService
     ) {
         this(
             velocityFeatureService, fraudRiskScoringService, fraudAssessmentRecordRepository,
             fraudReviewCaseRepository, fraudAssessmentEventPublisher, paymentLifecycleService,
-            platformMetricsService, fraudNotificationHookService, Clock.systemUTC(), new ObjectMapper()
+            platformMetricsService, fraudNotificationHookService, currentTenantService, Clock.systemUTC(), new ObjectMapper()
         );
     }
 
@@ -69,6 +71,7 @@ public class FraudAssessmentService {
         PaymentLifecycleService paymentLifecycleService,
         PlatformMetricsService platformMetricsService,
         FraudNotificationHookService fraudNotificationHookService,
+        CurrentTenantService currentTenantService,
         Clock clock,
         ObjectMapper objectMapper
     ) {
@@ -80,6 +83,7 @@ public class FraudAssessmentService {
         this.paymentLifecycleService = paymentLifecycleService;
         this.platformMetricsService = platformMetricsService;
         this.fraudNotificationHookService = fraudNotificationHookService;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
         this.objectMapper = objectMapper;
     }
@@ -93,8 +97,9 @@ public class FraudAssessmentService {
     public FraudAssessmentResult assess(PaymentRiskAssessmentRequest request, String idempotencyKey) {
         String normalizedKey = normalizeKey(idempotencyKey);
         String requestHash = hash(request);
+        UUID organizationId = currentTenantService.organizationId();
         if (normalizedKey != null) {
-            FraudAssessmentResult existingResult = fraudAssessmentRecordRepository.findByIdempotencyKey(normalizedKey)
+            FraudAssessmentResult existingResult = fraudAssessmentRecordRepository.findByOrganizationIdAndIdempotencyKey(organizationId, normalizedKey)
                 .map(existing -> restoreIdempotentResult(existing, requestHash, normalizedKey))
                 .orElse(null);
             if (existingResult != null) {
@@ -119,6 +124,7 @@ public class FraudAssessmentService {
 
         FraudAssessmentRecordEntity assessmentRecord = fraudAssessmentRecordRepository.save(new FraudAssessmentRecordEntity(
             UUID.randomUUID(),
+            organizationId,
             request.paymentId(),
             request.customerId(),
             assessment.riskScore(),
@@ -170,7 +176,7 @@ public class FraudAssessmentService {
         FraudRiskAssessment assessment = new FraudRiskAssessment(
             existing.getRiskScore(), existing.getDecision(), existing.getSummary(), factors
         );
-        UUID reviewCaseId = fraudReviewCaseRepository.findByAssessmentId(existing.getId())
+        UUID reviewCaseId = fraudReviewCaseRepository.findByOrganizationIdAndAssessmentId(existing.getOrganizationId(), existing.getId())
             .map(FraudReviewCaseEntity::getId)
             .orElse(null);
         return new FraudAssessmentResult(
@@ -230,6 +236,7 @@ public class FraudAssessmentService {
 
         return fraudReviewCaseRepository.save(new FraudReviewCaseEntity(
             UUID.randomUUID(),
+            assessmentRecord.getOrganizationId(),
             assessmentRecord.getId(),
             assessmentRecord.getPaymentId(),
             assessmentRecord.getCustomerId(),

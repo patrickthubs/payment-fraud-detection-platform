@@ -20,6 +20,9 @@ public class FraudReviewCaseEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "assessment_id", nullable = false, unique = true)
     private UUID assessmentId;
 
@@ -81,7 +84,42 @@ public class FraudReviewCaseEntity {
         Instant createdAt,
         Instant updatedAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            assessmentId,
+            paymentId,
+            customerId,
+            riskScore,
+            decision,
+            status,
+            summary,
+            currentAssignee,
+            resolutionSummary,
+            resolutionOutcome,
+            createdAt,
+            updatedAt
+        );
+    }
+
+    public FraudReviewCaseEntity(
+        UUID id,
+        UUID organizationId,
+        UUID assessmentId,
+        String paymentId,
+        String customerId,
+        int riskScore,
+        RiskDecision decision,
+        ReviewCaseStatus status,
+        String summary,
+        String currentAssignee,
+        String resolutionSummary,
+        CaseResolutionOutcome resolutionOutcome,
+        Instant createdAt,
+        Instant updatedAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.assessmentId = assessmentId;
         this.paymentId = paymentId;
         this.customerId = customerId;
@@ -98,6 +136,10 @@ public class FraudReviewCaseEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public UUID getAssessmentId() {

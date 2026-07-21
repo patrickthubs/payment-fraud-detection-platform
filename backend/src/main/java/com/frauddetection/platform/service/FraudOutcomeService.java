@@ -12,7 +12,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,25 +23,30 @@ public class FraudOutcomeService {
 
     private final FraudOutcomeRepository fraudOutcomeRepository;
     private final FraudAssessmentRecordRepository fraudAssessmentRecordRepository;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
 
+    @Autowired
     public FraudOutcomeService(
         FraudOutcomeRepository fraudOutcomeRepository,
         FraudAssessmentRecordRepository fraudAssessmentRecordRepository,
+        CurrentTenantService currentTenantService,
         Clock clock
     ) {
         this.fraudOutcomeRepository = fraudOutcomeRepository;
         this.fraudAssessmentRecordRepository = fraudAssessmentRecordRepository;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
     }
 
     @Transactional
     public FraudOutcomeResponse record(UUID assessmentId, FraudOutcomeRequest request, String operator) {
-        if (!fraudAssessmentRecordRepository.existsById(assessmentId)) {
+        UUID organizationId = currentTenantService.organizationId();
+        if (!fraudAssessmentRecordRepository.existsByOrganizationIdAndId(organizationId, assessmentId)) {
             throw new FraudAssessmentNotFoundException(assessmentId);
         }
         Instant now = clock.instant();
-        FraudOutcomeEntity entity = fraudOutcomeRepository.findByAssessmentId(assessmentId)
+        FraudOutcomeEntity entity = fraudOutcomeRepository.findByOrganizationIdAndAssessmentId(organizationId, assessmentId)
             .map(existing -> {
                 existing.update(
                     request.outcomeLabel(), request.source(), request.actualLoss(), request.recoveredAmount(),
@@ -48,7 +55,7 @@ public class FraudOutcomeService {
                 return existing;
             })
             .orElseGet(() -> new FraudOutcomeEntity(
-                UUID.randomUUID(), assessmentId, request.outcomeLabel(), request.source(), request.actualLoss(),
+                UUID.randomUUID(), organizationId, assessmentId, request.outcomeLabel(), request.source(), request.actualLoss(),
                 request.recoveredAmount(), request.notes(), operator, request.occurredAt(), now, now
             ));
         return toResponse(fraudOutcomeRepository.save(entity));
@@ -56,7 +63,7 @@ public class FraudOutcomeService {
 
     @Transactional(readOnly = true)
     public FraudOutcomeResponse findByAssessmentId(UUID assessmentId) {
-        return fraudOutcomeRepository.findByAssessmentId(assessmentId)
+        return fraudOutcomeRepository.findByOrganizationIdAndAssessmentId(currentTenantService.organizationId(), assessmentId)
             .map(this::toResponse)
             .orElseThrow(() -> new FraudAssessmentNotFoundException(assessmentId));
     }
@@ -70,7 +77,9 @@ public class FraudOutcomeService {
         BigDecimal actualLoss = BigDecimal.ZERO;
         BigDecimal recovered = BigDecimal.ZERO;
         long totalLabelled = 0;
-        for (FraudOutcomeRepository.QualityAggregateView aggregate : fraudOutcomeRepository.findQualityAggregates()) {
+        UUID organizationId = currentTenantService.organizationId();
+        List<FraudOutcomeRepository.QualityAggregateView> aggregates = fraudOutcomeRepository.findQualityAggregates(organizationId);
+        for (FraudOutcomeRepository.QualityAggregateView aggregate : aggregates) {
             totalLabelled += aggregate.getTotal();
             actualLoss = actualLoss.add(aggregate.getActualLoss());
             recovered = recovered.add(aggregate.getRecoveredAmount());

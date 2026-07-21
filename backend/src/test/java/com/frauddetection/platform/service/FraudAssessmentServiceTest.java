@@ -29,6 +29,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FraudAssessmentServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     @Mock
     private VelocityFeatureService velocityFeatureService;
 
@@ -47,6 +49,9 @@ class FraudAssessmentServiceTest {
     @Mock
     private FraudNotificationHookService fraudNotificationHookService;
 
+    @Mock
+    private CurrentTenantService currentTenantService;
+
     private FraudAssessmentService fraudAssessmentService;
     private FraudScoringProfileService fraudScoringProfileService;
 
@@ -54,6 +59,7 @@ class FraudAssessmentServiceTest {
     void setUp() {
         fraudScoringProfileService = mock(FraudScoringProfileService.class);
         when(fraudScoringProfileService.activeProfile()).thenReturn(new FraudScoringProfile(45, 65, 85));
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudAssessmentService = new FraudAssessmentService(
             velocityFeatureService,
             new FraudRiskScoringService(fraudScoringProfileService),
@@ -62,7 +68,8 @@ class FraudAssessmentServiceTest {
             fraudAssessmentEventPublisher,
             paymentLifecycleService,
             new PlatformMetricsService(new SimpleMeterRegistry()),
-            fraudNotificationHookService
+            fraudNotificationHookService,
+            currentTenantService
         );
 
         when(fraudAssessmentRecordRepository.save(any(FraudAssessmentRecordEntity.class)))
@@ -140,6 +147,7 @@ class FraudAssessmentServiceTest {
     private PaymentRecordEntity buildPaymentRecord(String paymentId, String customerId, PaymentStatus paymentStatus) {
         return new PaymentRecordEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             paymentId,
             customerId,
             BigDecimal.valueOf(1200),

@@ -15,6 +15,9 @@ public class FraudScoringProfileEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "version_number", nullable = false, unique = true)
     private int versionNumber;
 
@@ -80,13 +83,36 @@ public class FraudScoringProfileEntity {
         Instant activatedAt
     ) {
         this(
-            id, versionNumber, profileName, challengeThreshold, holdThreshold, declineThreshold,
+            id, UUID.fromString("f2000000-0000-0000-0000-000000000001"), versionNumber, profileName, challengeThreshold, holdThreshold, declineThreshold,
             "rules-v1", "{}", changeSummary, createdBy, activatedBy, active, createdAt, updatedAt, activatedAt
         );
     }
 
     public FraudScoringProfileEntity(
         UUID id,
+        UUID organizationId,
+        int versionNumber,
+        String profileName,
+        int challengeThreshold,
+        int holdThreshold,
+        int declineThreshold,
+        String changeSummary,
+        String createdBy,
+        String activatedBy,
+        boolean active,
+        Instant createdAt,
+        Instant updatedAt,
+        Instant activatedAt
+    ) {
+        this(
+            id, organizationId, versionNumber, profileName, challengeThreshold, holdThreshold, declineThreshold,
+            "rules-v1", "{}", changeSummary, createdBy, activatedBy, active, createdAt, updatedAt, activatedAt
+        );
+    }
+
+    public FraudScoringProfileEntity(
+        UUID id,
+        UUID organizationId,
         int versionNumber,
         String profileName,
         int challengeThreshold,
@@ -103,6 +129,7 @@ public class FraudScoringProfileEntity {
         Instant activatedAt
     ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.versionNumber = versionNumber;
         this.profileName = profileName;
         this.challengeThreshold = challengeThreshold;
@@ -121,6 +148,10 @@ public class FraudScoringProfileEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public int getVersionNumber() {

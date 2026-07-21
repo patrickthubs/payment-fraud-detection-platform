@@ -220,9 +220,11 @@ Schema evolution is handled through Flyway migrations under `backend/src/main/re
 
 ### Organization Boundary
 
-`fraud_organizations` is the commercial SaaS tenant anchor. Operators now belong to one organization, and authenticated sessions expose that organization context to the Angular console.
+`fraud_organizations` is the commercial SaaS tenant anchor. Operators belong to one organization, authenticated sessions expose that organization context to the Angular console, and core fraud/payment records carry an `organization_id` tenant key.
 
-This is deliberately a foundation rather than a half-finished promise of full multi-tenancy. The remaining business records still need `organization_id` columns and tenant-scoped repository methods before this can safely host multiple paying customers in one shared database.
+The platform uses a shared-database tenant-column model. Assessments, review cases, timeline entries, payments, payment transitions, scoring profiles, outcomes, replay batches, replay items, outbound events, step-up delivery audit rows, and step-up operator security state rows are tenant-owned. Operator-facing service/repository paths scope access to the current organization. Background outbound dispatch remains global because it is an internal worker flow.
+
+Remaining hardening before paid multi-customer hosting: add self-service organization onboarding, tenant administration, plan limits, billing, and production delivery observability.
 
 ### Redis
 
@@ -269,6 +271,8 @@ Mailpit supports local step-up verification email delivery so privileged operati
 4. The operator verifies the token or verification link.
 5. The backend marks elevated session state and allows protected actions until expiry.
 
+Step-up delivery audit and lockout state are stored with `organization_id`, so delivery listing, resend, revoke, verification, and rate-limit behavior stay inside the authenticated tenant boundary.
+
 ### Outcome feedback flow
 
 1. A supervisor records confirmed ground truth for an assessment from customer confirmation, chargeback, investigation, or another evidence source.
@@ -293,7 +297,7 @@ Step-up generation fails visibly and remains auditable through delivery records 
 ## Security and Privacy
 
 - operator accounts are persisted in the database, not kept in memory
-- operator sessions include organization context, giving the product a stable tenant boundary for the next isolation pass
+- operator sessions include organization context, and operator-facing business data access is tenant-scoped
 - sensitive privileged actions require step-up verification
 - case, payment, and outbound actions are auditable
 - generated references are preferred over sensitive payment instrument data
@@ -302,6 +306,7 @@ Step-up generation fails visibly and remains auditable through delivery records 
 - known demo identities are removed by migration and recreated only when the explicit `local` profile enables demo users
 - production datasource credentials have no committed fallback values
 - production machine tokens are validated against a configured issuer and audience, with explicit JWT role-claim mapping
+- production machine tokens must include a UUID tenant claim, `organization_id` by default, before tenant-scoped service paths can read or write data
 - fraud case CSV exports are database-bounded to at most 10,000 rows
 
 ## Observability
@@ -334,6 +339,6 @@ The current repository is validated through:
 - not a card network simulator
 - not a bank-core payment switch
 - not a machine-learning fraud platform
-- not yet a fully tenant-isolated commercial SaaS datastore
+- not yet a fully production-onboarded commercial SaaS with self-service tenant onboarding, billing, and plan enforcement
 
 It is a production-oriented modular monolith that demonstrates real fraud decisioning patterns, review workflows, outbound recovery, reviewer operations, organization-aware operator access, and step-up operator security with a usable UI.

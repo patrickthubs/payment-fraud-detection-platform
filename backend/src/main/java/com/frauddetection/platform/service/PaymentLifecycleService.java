@@ -43,14 +43,18 @@ public class PaymentLifecycleService {
         FraudAssessmentRecordEntity assessmentRecord,
         Instant updatedAt
     ) {
+        UUID organizationId = assessmentRecord.getOrganizationId();
         PaymentStatus targetStatus = mapDecisionToStatus(assessmentRecord.getDecision());
-        PaymentRecordEntity existingRecord = paymentRecordRepository.findByPaymentId(request.paymentId()).orElse(null);
+        PaymentRecordEntity existingRecord = paymentRecordRepository
+            .findByOrganizationIdAndPaymentId(organizationId, request.paymentId())
+            .orElse(null);
 
         PaymentStatus previousStatus;
         PaymentRecordEntity paymentRecord;
         if (existingRecord == null) {
             paymentRecord = paymentRecordRepository.save(new PaymentRecordEntity(
                 UUID.randomUUID(),
+                organizationId,
                 request.paymentId(),
                 request.customerId(),
                 request.amount(),
@@ -87,6 +91,7 @@ public class PaymentLifecycleService {
 
         paymentStateTransitionRepository.save(new PaymentStateTransitionEntity(
             UUID.randomUUID(),
+            organizationId,
             paymentRecord.getPaymentId(),
             previousStatus,
             targetStatus,
@@ -121,13 +126,14 @@ public class PaymentLifecycleService {
 
     @Transactional
     public PaymentRecordEntity transitionFromCaseResolution(
+        UUID organizationId,
         String paymentId,
         PaymentStatus targetStatus,
         String reason,
         UUID assessmentId,
         Instant updatedAt
     ) {
-        PaymentRecordEntity paymentRecord = paymentRecordRepository.findByPaymentId(paymentId)
+        PaymentRecordEntity paymentRecord = paymentRecordRepository.findByOrganizationIdAndPaymentId(organizationId, paymentId)
             .orElseThrow(() -> new PaymentNotFoundException(paymentId));
 
         PaymentStatus previousStatus = paymentRecord.transitionTo(targetStatus, updatedAt);
@@ -135,6 +141,7 @@ public class PaymentLifecycleService {
 
         paymentStateTransitionRepository.save(new PaymentStateTransitionEntity(
             UUID.randomUUID(),
+            organizationId,
             paymentId,
             previousStatus,
             targetStatus,
@@ -160,13 +167,14 @@ public class PaymentLifecycleService {
 
     @Transactional
     public PaymentRecordEntity completeChallenge(
+        UUID organizationId,
         String paymentId,
         String operator,
         CompletePaymentChallengeRequest request,
         UUID assessmentId,
         Instant updatedAt
     ) {
-        PaymentRecordEntity paymentRecord = paymentRecordRepository.findByPaymentId(paymentId)
+        PaymentRecordEntity paymentRecord = paymentRecordRepository.findByOrganizationIdAndPaymentId(organizationId, paymentId)
             .orElseThrow(() -> new PaymentNotFoundException(paymentId));
 
         if (paymentRecord.getPaymentStatus() != PaymentStatus.CHALLENGED) {
@@ -189,6 +197,7 @@ public class PaymentLifecycleService {
 
         paymentStateTransitionRepository.save(new PaymentStateTransitionEntity(
             UUID.randomUUID(),
+            organizationId,
             paymentId,
             previousStatus,
             targetStatus,

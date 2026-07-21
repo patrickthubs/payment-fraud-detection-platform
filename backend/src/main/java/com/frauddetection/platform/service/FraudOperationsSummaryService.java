@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,14 +51,17 @@ public class FraudOperationsSummaryService {
     private final FraudReviewCaseRepository fraudReviewCaseRepository;
     private final FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository;
     private final FraudOutboundEventRepository fraudOutboundEventRepository;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
 
+    @Autowired
     public FraudOperationsSummaryService(
         FraudAssessmentRecordRepository fraudAssessmentRecordRepository,
         PaymentRecordRepository paymentRecordRepository,
         FraudReviewCaseRepository fraudReviewCaseRepository,
         FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository,
         FraudOutboundEventRepository fraudOutboundEventRepository,
+        CurrentTenantService currentTenantService,
         Clock clock
     ) {
         this.fraudAssessmentRecordRepository = fraudAssessmentRecordRepository;
@@ -65,19 +69,22 @@ public class FraudOperationsSummaryService {
         this.fraudReviewCaseRepository = fraudReviewCaseRepository;
         this.fraudCaseTimelineEntryRepository = fraudCaseTimelineEntryRepository;
         this.fraudOutboundEventRepository = fraudOutboundEventRepository;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public FraudOperationsSummaryResponse getSummary() {
-        long totalAssessments = fraudAssessmentRecordRepository.count();
-        long totalTrackedPayments = paymentRecordRepository.count();
-        long totalReviewCases = fraudReviewCaseRepository.count();
-        long distinctCustomersAssessed = fraudAssessmentRecordRepository.countDistinctCustomerIds();
-        BigDecimal averageRiskScore = BigDecimal.valueOf(fraudAssessmentRecordRepository.averageRiskScore())
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        long totalAssessments = fraudAssessmentRecordRepository.countByOrganizationId(organizationId);
+        long totalTrackedPayments = paymentRecordRepository.countByOrganizationId(organizationId);
+        long totalReviewCases = fraudReviewCaseRepository.countByOrganizationId(organizationId);
+        long distinctCustomersAssessed = fraudAssessmentRecordRepository.countDistinctCustomerIds(organizationId);
+        BigDecimal averageRiskScore = BigDecimal.valueOf(fraudAssessmentRecordRepository.averageRiskScore(organizationId))
             .setScale(2, RoundingMode.HALF_UP);
 
-        long reviewBacklogCount = fraudReviewCaseRepository.countByStatusIn(
+        long reviewBacklogCount = fraudReviewCaseRepository.countByOrganizationIdAndStatusIn(
+            organizationId,
             List.of(ReviewCaseStatus.OPEN, ReviewCaseStatus.ESCALATED)
         );
         FraudChallengeOutcomeSummaryResponse challengeOutcomeSummary = buildChallengeOutcomeSummary();
@@ -93,34 +100,35 @@ public class FraudOperationsSummaryService {
             challengeOutcomeSummary,
             reviewerAnalytics,
             new FraudOutboundDeliverySummaryResponse(
-                fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.PENDING),
-                fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.DELIVERED),
-                fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.FAILED)
+                fraudOutboundEventRepository.countByOrganizationIdAndStatus(organizationId, FraudOutboundEventStatus.PENDING),
+                fraudOutboundEventRepository.countByOrganizationIdAndStatus(organizationId, FraudOutboundEventStatus.DELIVERED),
+                fraudOutboundEventRepository.countByOrganizationIdAndStatus(organizationId, FraudOutboundEventStatus.FAILED)
             ),
-            fraudAssessmentRecordRepository.countGroupedByDecision().stream()
+            fraudAssessmentRecordRepository.countGroupedByDecision(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getDecision().name(), row.getTotal()))
                 .toList(),
-            fraudAssessmentRecordRepository.countGroupedByVelocitySource().stream()
+            fraudAssessmentRecordRepository.countGroupedByVelocitySource(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getVelocitySource().name(), row.getTotal()))
                 .toList(),
-            paymentRecordRepository.countGroupedByPaymentStatus().stream()
+            paymentRecordRepository.countGroupedByPaymentStatus(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getPaymentStatus().name(), row.getTotal()))
                 .toList(),
-            fraudReviewCaseRepository.countGroupedByStatus().stream()
+            fraudReviewCaseRepository.countGroupedByStatus(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getStatus().name(), row.getTotal()))
                 .toList(),
-            fraudReviewCaseRepository.countGroupedByResolutionOutcome().stream()
+            fraudReviewCaseRepository.countGroupedByResolutionOutcome(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getResolutionOutcome().name(), row.getTotal()))
                 .toList()
         );
     }
 
     private FraudChallengeOutcomeSummaryResponse buildChallengeOutcomeSummary() {
-        long challengedPayments = paymentRecordRepository.countByLatestDecision(RiskDecision.CHALLENGE);
-        long pendingChallenges = paymentRecordRepository.countByPaymentStatus(PaymentStatus.CHALLENGED);
-        long passedChallenges = paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.PASSED);
-        long failedChallenges = paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.FAILED);
-        long abandonedChallenges = paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.ABANDONED);
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        long challengedPayments = paymentRecordRepository.countByOrganizationIdAndLatestDecision(organizationId, RiskDecision.CHALLENGE);
+        long pendingChallenges = paymentRecordRepository.countByOrganizationIdAndPaymentStatus(organizationId, PaymentStatus.CHALLENGED);
+        long passedChallenges = paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(organizationId, ChallengeOutcome.PASSED);
+        long failedChallenges = paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(organizationId, ChallengeOutcome.FAILED);
+        long abandonedChallenges = paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(organizationId, ChallengeOutcome.ABANDONED);
         long completedChallenges = passedChallenges + failedChallenges + abandonedChallenges;
 
         return new FraudChallengeOutcomeSummaryResponse(
@@ -135,14 +143,16 @@ public class FraudOperationsSummaryService {
             rate(abandonedChallenges, completedChallenges),
             averageRiskScore(ChallengeOutcome.PASSED),
             averageRiskScore(ChallengeOutcome.ABANDONED),
-            paymentRecordRepository.countGroupedByChallengeOutcome().stream()
+            paymentRecordRepository.countGroupedByChallengeOutcome(organizationId).stream()
                 .map(row -> new FraudMetricCountResponse(row.getChallengeOutcome().name(), row.getTotal()))
                 .toList()
         );
     }
 
     private BigDecimal averageRiskScore(ChallengeOutcome challengeOutcome) {
-        return BigDecimal.valueOf(paymentRecordRepository.averageRiskScoreByChallengeOutcome(challengeOutcome))
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        double average = paymentRecordRepository.averageRiskScoreByChallengeOutcome(organizationId, challengeOutcome);
+        return BigDecimal.valueOf(average)
             .setScale(2, RoundingMode.HALF_UP);
     }
 
@@ -156,7 +166,10 @@ public class FraudOperationsSummaryService {
     }
 
     private FraudReviewerAnalyticsSummaryResponse buildReviewerAnalytics() {
-        List<FraudReviewCaseEntity> cases = fraudReviewCaseRepository.findAll();
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        List<FraudReviewCaseEntity> cases = fraudReviewCaseRepository.findAll(
+            (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("organizationId"), organizationId)
+        );
         Instant now = Instant.now(clock);
         List<FraudReviewCaseEntity> backlogCases = cases.stream()
             .filter(caseEntity -> caseEntity.getStatus() == ReviewCaseStatus.OPEN || caseEntity.getStatus() == ReviewCaseStatus.ESCALATED)
@@ -275,7 +288,10 @@ public class FraudOperationsSummaryService {
                 }
             });
 
-        fraudCaseTimelineEntryRepository.countGroupedByActorAndActionType().forEach(view -> {
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        List<FraudCaseTimelineEntryRepository.ActorActionCountView> actionCounts =
+            fraudCaseTimelineEntryRepository.countGroupedByActorAndActionType(organizationId);
+        actionCounts.forEach(view -> {
             ReviewerAggregation aggregation = aggregations.computeIfAbsent(view.getActor(), ignored -> new ReviewerAggregation());
             aggregation.actionCounts.merge(view.getActionType(), view.getTotal(), Long::sum);
         });

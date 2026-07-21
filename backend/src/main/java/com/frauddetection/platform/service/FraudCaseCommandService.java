@@ -19,6 +19,7 @@ import com.frauddetection.platform.repository.FraudCaseTimelineEntryRepository;
 import com.frauddetection.platform.repository.FraudReviewCaseRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,14 +32,17 @@ public class FraudCaseCommandService {
     private final PaymentLifecycleService paymentLifecycleService;
     private final PlatformMetricsService platformMetricsService;
     private final FraudNotificationHookService fraudNotificationHookService;
+    private final CurrentTenantService currentTenantService;
 
+    @Autowired
     public FraudCaseCommandService(
         FraudReviewCaseRepository fraudReviewCaseRepository,
         FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository,
         FraudCaseQueryService fraudCaseQueryService,
         PaymentLifecycleService paymentLifecycleService,
         PlatformMetricsService platformMetricsService,
-        FraudNotificationHookService fraudNotificationHookService
+        FraudNotificationHookService fraudNotificationHookService,
+        CurrentTenantService currentTenantService
     ) {
         this.fraudReviewCaseRepository = fraudReviewCaseRepository;
         this.fraudCaseTimelineEntryRepository = fraudCaseTimelineEntryRepository;
@@ -46,6 +50,7 @@ public class FraudCaseCommandService {
         this.paymentLifecycleService = paymentLifecycleService;
         this.platformMetricsService = platformMetricsService;
         this.fraudNotificationHookService = fraudNotificationHookService;
+        this.currentTenantService = currentTenantService;
     }
 
     @Transactional
@@ -109,6 +114,7 @@ public class FraudCaseCommandService {
         rejectUnsupportedResolutionOutcome(entity, request.outcome());
         Instant now = Instant.now();
         var paymentRecord = paymentLifecycleService.transitionFromCaseResolution(
+            entity.getOrganizationId(),
             entity.getPaymentId(),
             toPaymentStatus(request.outcome()),
             request.resolutionSummary(),
@@ -130,7 +136,8 @@ public class FraudCaseCommandService {
     }
 
     private FraudReviewCaseEntity loadCase(UUID caseId) {
-        return fraudReviewCaseRepository.findById(caseId)
+        UUID organizationId = currentTenantService.organizationId();
+        return fraudReviewCaseRepository.findByOrganizationIdAndId(organizationId, caseId)
             .orElseThrow(() -> new FraudCaseNotFoundException(caseId));
     }
 
@@ -156,6 +163,7 @@ public class FraudCaseCommandService {
     private void appendTimeline(UUID caseId, FraudCaseActionType actionType, String actor, String detail, Instant createdAt) {
         fraudCaseTimelineEntryRepository.save(new FraudCaseTimelineEntryEntity(
             UUID.randomUUID(),
+            currentTenantService.organizationId(),
             caseId,
             actionType,
             actor,

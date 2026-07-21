@@ -1,6 +1,7 @@
 package com.frauddetection.platform.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,16 +25,21 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.domain.Specification;
 
 class FraudOperationsSummaryServiceTest {
+
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
 
     private FraudAssessmentRecordRepository fraudAssessmentRecordRepository;
     private PaymentRecordRepository paymentRecordRepository;
     private FraudReviewCaseRepository fraudReviewCaseRepository;
     private FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository;
     private FraudOutboundEventRepository fraudOutboundEventRepository;
+    private CurrentTenantService currentTenantService;
     private FraudOperationsSummaryService fraudOperationsSummaryService;
 
     @BeforeEach
@@ -43,26 +49,29 @@ class FraudOperationsSummaryServiceTest {
         fraudReviewCaseRepository = mock(FraudReviewCaseRepository.class);
         fraudCaseTimelineEntryRepository = mock(FraudCaseTimelineEntryRepository.class);
         fraudOutboundEventRepository = mock(FraudOutboundEventRepository.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudOperationsSummaryService = new FraudOperationsSummaryService(
             fraudAssessmentRecordRepository,
             paymentRecordRepository,
             fraudReviewCaseRepository,
             fraudCaseTimelineEntryRepository,
             fraudOutboundEventRepository,
+            currentTenantService,
             Clock.fixed(Instant.parse("2026-07-17T10:00:00Z"), ZoneOffset.UTC)
         );
     }
 
     @Test
     void buildsOperationsSummaryFromRepositoryAggregates() {
-        when(fraudAssessmentRecordRepository.count()).thenReturn(12L);
-        when(paymentRecordRepository.count()).thenReturn(10L);
-        when(fraudReviewCaseRepository.count()).thenReturn(6L);
-        when(fraudAssessmentRecordRepository.countDistinctCustomerIds()).thenReturn(8L);
-        when(fraudAssessmentRecordRepository.averageRiskScore()).thenReturn(63.333d);
-        when(fraudReviewCaseRepository.countByStatusIn(List.of(ReviewCaseStatus.OPEN, ReviewCaseStatus.ESCALATED)))
+        when(fraudAssessmentRecordRepository.countByOrganizationId(ORGANIZATION_ID)).thenReturn(12L);
+        when(paymentRecordRepository.countByOrganizationId(ORGANIZATION_ID)).thenReturn(10L);
+        when(fraudReviewCaseRepository.countByOrganizationId(ORGANIZATION_ID)).thenReturn(6L);
+        when(fraudAssessmentRecordRepository.countDistinctCustomerIds(ORGANIZATION_ID)).thenReturn(8L);
+        when(fraudAssessmentRecordRepository.averageRiskScore(ORGANIZATION_ID)).thenReturn(63.333d);
+        when(fraudReviewCaseRepository.countByOrganizationIdAndStatusIn(ORGANIZATION_ID, List.of(ReviewCaseStatus.OPEN, ReviewCaseStatus.ESCALATED)))
             .thenReturn(4L);
-        when(fraudReviewCaseRepository.findAll()).thenReturn(List.of(
+        when(fraudReviewCaseRepository.findAll(anyCaseSpecification())).thenReturn(List.of(
             buildCase("analyst.one", ReviewCaseStatus.OPEN, null, "2026-07-17T08:00:00Z", "2026-07-17T08:30:00Z"),
             buildCase("analyst.one", ReviewCaseStatus.OPEN, null, "2026-07-16T04:00:00Z", "2026-07-16T04:30:00Z"),
             buildCase("analyst.one", ReviewCaseStatus.RESOLVED, CaseResolutionOutcome.RELEASE_PAYMENT, "2026-07-16T08:00:00Z", "2026-07-16T18:00:00Z"),
@@ -70,36 +79,36 @@ class FraudOperationsSummaryServiceTest {
             buildCase("senior.analyst", ReviewCaseStatus.RESOLVED, CaseResolutionOutcome.CONFIRM_DECLINE, "2026-07-15T10:00:00Z", "2026-07-16T16:00:00Z"),
             buildCase(null, ReviewCaseStatus.OPEN, null, "2026-07-16T02:00:00Z", "2026-07-16T03:00:00Z")
         ));
-        when(fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.PENDING)).thenReturn(6L);
-        when(fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.DELIVERED)).thenReturn(19L);
-        when(fraudOutboundEventRepository.countByStatus(FraudOutboundEventStatus.FAILED)).thenReturn(1L);
+        when(fraudOutboundEventRepository.countByOrganizationIdAndStatus(ORGANIZATION_ID, FraudOutboundEventStatus.PENDING)).thenReturn(6L);
+        when(fraudOutboundEventRepository.countByOrganizationIdAndStatus(ORGANIZATION_ID, FraudOutboundEventStatus.DELIVERED)).thenReturn(19L);
+        when(fraudOutboundEventRepository.countByOrganizationIdAndStatus(ORGANIZATION_ID, FraudOutboundEventStatus.FAILED)).thenReturn(1L);
 
         FraudAssessmentRecordRepository.DecisionCountView decisionCount = mock(FraudAssessmentRecordRepository.DecisionCountView.class);
         when(decisionCount.getDecision()).thenReturn(RiskDecision.HOLD);
         when(decisionCount.getTotal()).thenReturn(5L);
-        when(fraudAssessmentRecordRepository.countGroupedByDecision()).thenReturn(List.of(decisionCount));
+        when(fraudAssessmentRecordRepository.countGroupedByDecision(ORGANIZATION_ID)).thenReturn(List.of(decisionCount));
 
         FraudAssessmentRecordRepository.VelocitySourceCountView velocityCount = mock(FraudAssessmentRecordRepository.VelocitySourceCountView.class);
         when(velocityCount.getVelocitySource()).thenReturn(VelocitySource.REDIS);
         when(velocityCount.getTotal()).thenReturn(7L);
-        when(fraudAssessmentRecordRepository.countGroupedByVelocitySource()).thenReturn(List.of(velocityCount));
+        when(fraudAssessmentRecordRepository.countGroupedByVelocitySource(ORGANIZATION_ID)).thenReturn(List.of(velocityCount));
 
         PaymentRecordRepository.PaymentStatusCountView paymentStatusCount = mock(PaymentRecordRepository.PaymentStatusCountView.class);
         when(paymentStatusCount.getPaymentStatus()).thenReturn(PaymentStatus.HELD);
         when(paymentStatusCount.getTotal()).thenReturn(2L);
-        when(paymentRecordRepository.countGroupedByPaymentStatus()).thenReturn(List.of(paymentStatusCount));
-        when(paymentRecordRepository.countByLatestDecision(RiskDecision.CHALLENGE)).thenReturn(5L);
-        when(paymentRecordRepository.countByPaymentStatus(PaymentStatus.CHALLENGED)).thenReturn(1L);
-        when(paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.PASSED)).thenReturn(2L);
-        when(paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.FAILED)).thenReturn(1L);
-        when(paymentRecordRepository.countByChallengeOutcome(ChallengeOutcome.ABANDONED)).thenReturn(1L);
-        when(paymentRecordRepository.averageRiskScoreByChallengeOutcome(ChallengeOutcome.PASSED)).thenReturn(44d);
-        when(paymentRecordRepository.averageRiskScoreByChallengeOutcome(ChallengeOutcome.ABANDONED)).thenReturn(61d);
+        when(paymentRecordRepository.countGroupedByPaymentStatus(ORGANIZATION_ID)).thenReturn(List.of(paymentStatusCount));
+        when(paymentRecordRepository.countByOrganizationIdAndLatestDecision(ORGANIZATION_ID, RiskDecision.CHALLENGE)).thenReturn(5L);
+        when(paymentRecordRepository.countByOrganizationIdAndPaymentStatus(ORGANIZATION_ID, PaymentStatus.CHALLENGED)).thenReturn(1L);
+        when(paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(ORGANIZATION_ID, ChallengeOutcome.PASSED)).thenReturn(2L);
+        when(paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(ORGANIZATION_ID, ChallengeOutcome.FAILED)).thenReturn(1L);
+        when(paymentRecordRepository.countByOrganizationIdAndChallengeOutcome(ORGANIZATION_ID, ChallengeOutcome.ABANDONED)).thenReturn(1L);
+        when(paymentRecordRepository.averageRiskScoreByChallengeOutcome(ORGANIZATION_ID, ChallengeOutcome.PASSED)).thenReturn(44d);
+        when(paymentRecordRepository.averageRiskScoreByChallengeOutcome(ORGANIZATION_ID, ChallengeOutcome.ABANDONED)).thenReturn(61d);
 
         PaymentRecordRepository.ChallengeOutcomeCountView challengeOutcomeCount = mock(PaymentRecordRepository.ChallengeOutcomeCountView.class);
         when(challengeOutcomeCount.getChallengeOutcome()).thenReturn(ChallengeOutcome.PASSED);
         when(challengeOutcomeCount.getTotal()).thenReturn(2L);
-        when(paymentRecordRepository.countGroupedByChallengeOutcome()).thenReturn(List.of(challengeOutcomeCount));
+        when(paymentRecordRepository.countGroupedByChallengeOutcome(ORGANIZATION_ID)).thenReturn(List.of(challengeOutcomeCount));
 
         FraudCaseTimelineEntryRepository.ActorActionCountView assignmentActionCount = mock(FraudCaseTimelineEntryRepository.ActorActionCountView.class);
         when(assignmentActionCount.getActor()).thenReturn("lead.analyst");
@@ -116,19 +125,19 @@ class FraudOperationsSummaryServiceTest {
         when(resolutionActionCount.getActionType()).thenReturn(FraudCaseActionType.RESOLVED);
         when(resolutionActionCount.getTotal()).thenReturn(2L);
 
-        when(fraudCaseTimelineEntryRepository.countGroupedByActorAndActionType()).thenReturn(
+        when(fraudCaseTimelineEntryRepository.countGroupedByActorAndActionType(ORGANIZATION_ID)).thenReturn(
             List.of(assignmentActionCount, noteActionCount, resolutionActionCount)
         );
 
         FraudReviewCaseRepository.CaseStatusCountView caseStatusCount = mock(FraudReviewCaseRepository.CaseStatusCountView.class);
         when(caseStatusCount.getStatus()).thenReturn(ReviewCaseStatus.ESCALATED);
         when(caseStatusCount.getTotal()).thenReturn(1L);
-        when(fraudReviewCaseRepository.countGroupedByStatus()).thenReturn(List.of(caseStatusCount));
+        when(fraudReviewCaseRepository.countGroupedByStatus(ORGANIZATION_ID)).thenReturn(List.of(caseStatusCount));
 
         FraudReviewCaseRepository.ResolutionOutcomeCountView resolutionCount = mock(FraudReviewCaseRepository.ResolutionOutcomeCountView.class);
         when(resolutionCount.getResolutionOutcome()).thenReturn(CaseResolutionOutcome.CONFIRM_DECLINE);
         when(resolutionCount.getTotal()).thenReturn(2L);
-        when(fraudReviewCaseRepository.countGroupedByResolutionOutcome()).thenReturn(List.of(resolutionCount));
+        when(fraudReviewCaseRepository.countGroupedByResolutionOutcome(ORGANIZATION_ID)).thenReturn(List.of(resolutionCount));
 
         FraudOperationsSummaryResponse response = fraudOperationsSummaryService.getSummary();
 
@@ -260,6 +269,7 @@ class FraudOperationsSummaryServiceTest {
     ) {
         return new FraudReviewCaseEntity(
             java.util.UUID.randomUUID(),
+            ORGANIZATION_ID,
             java.util.UUID.randomUUID(),
             "PAY-" + assignee + "-" + status.name(),
             "CUST-" + assignee,
@@ -273,5 +283,10 @@ class FraudOperationsSummaryServiceTest {
             Instant.parse(createdAt),
             Instant.parse(updatedAt)
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private Specification<FraudReviewCaseEntity> anyCaseSpecification() {
+        return any(Specification.class);
     }
 }

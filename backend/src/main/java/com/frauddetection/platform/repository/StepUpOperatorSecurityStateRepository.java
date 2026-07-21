@@ -7,5 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StepUpOperatorSecurityStateRepository extends JpaRepository<StepUpOperatorSecurityStateEntity, UUID> {
 
-    Optional<StepUpOperatorSecurityStateEntity> findByOperatorUsernameIgnoreCase(String operatorUsername);
+    Optional<StepUpOperatorSecurityStateEntity> findByOrganizationIdAndOperatorUsernameIgnoreCase(
+        UUID organizationId,
+        String operatorUsername
+    );
 }

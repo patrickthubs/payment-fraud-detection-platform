@@ -13,7 +13,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface FraudOutboundEventRepository
     extends JpaRepository<FraudOutboundEventEntity, UUID>, JpaSpecificationExecutor<FraudOutboundEventEntity> {
 
-    long countByStatus(FraudOutboundEventStatus status);
+    long countByOrganizationIdAndStatus(UUID organizationId, FraudOutboundEventStatus status);
 
     List<FraudOutboundEventEntity> findByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
         Collection<FraudOutboundEventStatus> statuses,
@@ -21,14 +21,17 @@ public interface FraudOutboundEventRepository
         Pageable pageable
     );
 
-    List<FraudOutboundEventEntity> findByStatusOrderByCreatedAtDesc(
+    List<FraudOutboundEventEntity> findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+        UUID organizationId,
         FraudOutboundEventStatus status,
         Pageable pageable
     );
 
-    List<FraudOutboundEventEntity> findByStatusOrderByCreatedAtAsc(FraudOutboundEventStatus status);
+    List<FraudOutboundEventEntity> findByOrganizationIdAndStatusOrderByCreatedAtAsc(UUID organizationId, FraudOutboundEventStatus status);
 
-    List<FraudOutboundEventEntity> findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(Instant createdAt);
+    List<FraudOutboundEventEntity> findByOrganizationIdAndCreatedAtGreaterThanEqualOrderByCreatedAtAsc(UUID organizationId, Instant createdAt);
 
     List<FraudOutboundEventEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    List<FraudOutboundEventEntity> findAllByOrganizationIdOrderByCreatedAtDesc(UUID organizationId, Pageable pageable);
 }

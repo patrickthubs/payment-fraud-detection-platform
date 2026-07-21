@@ -24,11 +24,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FraudOutcomeServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     @Mock
     private FraudOutcomeRepository fraudOutcomeRepository;
 
     @Mock
     private FraudAssessmentRecordRepository fraudAssessmentRecordRepository;
+
+    @Mock
+    private CurrentTenantService currentTenantService;
 
     @Test
     void calculatesDecisionQualityFromConclusiveGroundTruth() {
@@ -37,11 +42,13 @@ class FraudOutcomeServiceTest {
             aggregate(RiskDecision.DECLINE, FraudOutcomeLabel.CONFIRMED_FRAUD, 1, "1000", "250"),
             aggregate(RiskDecision.CHALLENGE, FraudOutcomeLabel.GENUINE, 1, "0", "0")
         );
-        when(fraudOutcomeRepository.findQualityAggregates()).thenReturn(aggregates);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
+        when(fraudOutcomeRepository.findQualityAggregates(ORGANIZATION_ID)).thenReturn(aggregates);
 
         FraudOutcomeService service = new FraudOutcomeService(
             fraudOutcomeRepository,
             fraudAssessmentRecordRepository,
+            currentTenantService,
             Clock.fixed(now, ZoneOffset.UTC)
         );
 

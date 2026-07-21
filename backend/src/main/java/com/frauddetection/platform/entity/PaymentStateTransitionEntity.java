@@ -17,6 +17,9 @@ public class PaymentStateTransitionEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "payment_id", nullable = false, length = 100)
     private String paymentId;
 
@@ -49,7 +52,30 @@ public class PaymentStateTransitionEntity {
         UUID assessmentId,
         Instant createdAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            paymentId,
+            fromStatus,
+            toStatus,
+            reason,
+            assessmentId,
+            createdAt
+        );
+    }
+
+    public PaymentStateTransitionEntity(
+        UUID id,
+        UUID organizationId,
+        String paymentId,
+        PaymentStatus fromStatus,
+        PaymentStatus toStatus,
+        String reason,
+        UUID assessmentId,
+        Instant createdAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.paymentId = paymentId;
         this.fromStatus = fromStatus;
         this.toStatus = toStatus;
@@ -60,6 +86,10 @@ public class PaymentStateTransitionEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getPaymentId() {

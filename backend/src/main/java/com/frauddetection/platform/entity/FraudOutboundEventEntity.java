@@ -17,6 +17,9 @@ public class FraudOutboundEventEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "event_type", nullable = false, length = 120)
     private String eventType;
 
@@ -84,7 +87,48 @@ public class FraudOutboundEventEntity {
         Instant createdAt,
         Instant updatedAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            eventType,
+            topicName,
+            messageKey,
+            payload,
+            status,
+            attemptCount,
+            nextAttemptAt,
+            lastAttemptedAt,
+            publishedAt,
+            lastError,
+            operatorNote,
+            notedBy,
+            notedAt,
+            createdAt,
+            updatedAt
+        );
+    }
+
+    public FraudOutboundEventEntity(
+        UUID id,
+        UUID organizationId,
+        String eventType,
+        String topicName,
+        String messageKey,
+        String payload,
+        FraudOutboundEventStatus status,
+        int attemptCount,
+        Instant nextAttemptAt,
+        Instant lastAttemptedAt,
+        Instant publishedAt,
+        String lastError,
+        String operatorNote,
+        String notedBy,
+        Instant notedAt,
+        Instant createdAt,
+        Instant updatedAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.eventType = eventType;
         this.topicName = topicName;
         this.messageKey = messageKey;
@@ -104,6 +148,10 @@ public class FraudOutboundEventEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getEventType() {

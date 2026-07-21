@@ -18,6 +18,9 @@ public class FraudAssessmentRecordEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "payment_id", nullable = false, length = 100)
     private String paymentId;
 
@@ -80,13 +83,14 @@ public class FraudAssessmentRecordEntity {
         Instant createdAt
     ) {
         this(
-            id, paymentId, customerId, riskScore, decision, velocitySource, summary, triggeredFactorCodes,
+            id, UUID.fromString("f2000000-0000-0000-0000-000000000001"), paymentId, customerId, riskScore, decision, velocitySource, summary, triggeredFactorCodes,
             null, 0, "rules-v1", "{}", "[]", null, null, createdAt
         );
     }
 
     public FraudAssessmentRecordEntity(
         UUID id,
+        UUID organizationId,
         String paymentId,
         String customerId,
         int riskScore,
@@ -104,6 +108,7 @@ public class FraudAssessmentRecordEntity {
         Instant createdAt
     ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.paymentId = paymentId;
         this.customerId = customerId;
         this.riskScore = riskScore;
@@ -123,6 +128,10 @@ public class FraudAssessmentRecordEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getPaymentId() {

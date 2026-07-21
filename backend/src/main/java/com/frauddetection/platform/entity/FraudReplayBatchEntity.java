@@ -14,6 +14,9 @@ public class FraudReplayBatchEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "batch_name", nullable = false, length = 160)
     private String batchName;
 
@@ -48,7 +51,32 @@ public class FraudReplayBatchEntity {
         String createdBy,
         Instant createdAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            batchName,
+            scenarioCount,
+            challengeThreshold,
+            holdThreshold,
+            declineThreshold,
+            createdBy,
+            createdAt
+        );
+    }
+
+    public FraudReplayBatchEntity(
+        UUID id,
+        UUID organizationId,
+        String batchName,
+        int scenarioCount,
+        int challengeThreshold,
+        int holdThreshold,
+        int declineThreshold,
+        String createdBy,
+        Instant createdAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.batchName = batchName;
         this.scenarioCount = scenarioCount;
         this.challengeThreshold = challengeThreshold;
@@ -60,6 +88,10 @@ public class FraudReplayBatchEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getBatchName() {

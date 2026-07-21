@@ -22,6 +22,7 @@ fraud:
     machine-auth:
       mode: oauth2
       roles-claim: ${OAUTH2_ROLES_CLAIM:roles}
+      organization-id-claim: ${OAUTH2_ORGANIZATION_ID_CLAIM:organization_id}
     step-up:
       expose-verification-url: false
       delivery-channel: EMAIL

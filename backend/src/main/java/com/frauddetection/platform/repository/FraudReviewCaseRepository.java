@@ -11,22 +11,30 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface FraudReviewCaseRepository extends JpaRepository<FraudReviewCaseEntity, UUID>, JpaSpecificationExecutor<FraudReviewCaseEntity> {
 
-    java.util.Optional<FraudReviewCaseEntity> findByAssessmentId(UUID assessmentId);
+    java.util.Optional<FraudReviewCaseEntity> findByOrganizationIdAndAssessmentId(UUID organizationId, UUID assessmentId);
 
-    List<FraudReviewCaseEntity> findAllByOrderByCreatedAtDesc();
+    java.util.Optional<FraudReviewCaseEntity> findByOrganizationIdAndId(UUID organizationId, UUID id);
 
-    long countByStatusIn(List<ReviewCaseStatus> statuses);
+    long countByOrganizationId(UUID organizationId);
 
-    @Query("select reviewCase.status as status, count(reviewCase) as total from FraudReviewCaseEntity reviewCase group by reviewCase.status")
-    List<CaseStatusCountView> countGroupedByStatus();
+    long countByOrganizationIdAndStatusIn(UUID organizationId, List<ReviewCaseStatus> statuses);
+
+    @Query("""
+        select reviewCase.status as status, count(reviewCase) as total
+        from FraudReviewCaseEntity reviewCase
+        where reviewCase.organizationId = :organizationId
+        group by reviewCase.status
+        """)
+    List<CaseStatusCountView> countGroupedByStatus(UUID organizationId);
 
     @Query("""
         select reviewCase.resolutionOutcome as resolutionOutcome, count(reviewCase) as total
         from FraudReviewCaseEntity reviewCase
-        where reviewCase.resolutionOutcome is not null
+        where reviewCase.organizationId = :organizationId
+          and reviewCase.resolutionOutcome is not null
         group by reviewCase.resolutionOutcome
         """)
-    List<ResolutionOutcomeCountView> countGroupedByResolutionOutcome();
+    List<ResolutionOutcomeCountView> countGroupedByResolutionOutcome(UUID organizationId);
 
     interface CaseStatusCountView {
         ReviewCaseStatus getStatus();

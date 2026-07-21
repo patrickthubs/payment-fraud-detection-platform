@@ -37,12 +37,15 @@ import org.springframework.security.authentication.ott.OneTimeTokenService;
 
 class StepUpAuthenticationServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private OneTimeTokenService oneTimeTokenService;
     private FraudOperatorRepository fraudOperatorRepository;
     private StepUpOperatorSecurityStateRepository stepUpOperatorSecurityStateRepository;
     private StepUpTokenDeliveryRepository stepUpTokenDeliveryRepository;
     private StepUpDeliveryGateway stepUpDeliveryGateway;
     private JdbcOperations jdbcOperations;
+    private CurrentTenantService currentTenantService;
     private StepUpAuthenticationService stepUpAuthenticationService;
 
     @BeforeEach
@@ -53,6 +56,8 @@ class StepUpAuthenticationServiceTest {
         stepUpTokenDeliveryRepository = mock(StepUpTokenDeliveryRepository.class);
         stepUpDeliveryGateway = mock(StepUpDeliveryGateway.class);
         jdbcOperations = mock(JdbcOperations.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         stepUpAuthenticationService = new StepUpAuthenticationService(
             oneTimeTokenService,
             new FraudStepUpProperties(
@@ -73,7 +78,8 @@ class StepUpAuthenticationServiceTest {
             stepUpOperatorSecurityStateRepository,
             stepUpTokenDeliveryRepository,
             stepUpDeliveryGateway,
-            jdbcOperations
+            jdbcOperations,
+            currentTenantService
         );
     }
 
@@ -82,9 +88,16 @@ class StepUpAuthenticationServiceTest {
         FraudOperatorEntity operator = operator();
         when(fraudOperatorRepository.findByUsernameIgnoreCase("senior.analyst"))
             .thenReturn(Optional.of(operator));
-        when(stepUpTokenDeliveryRepository.findTopByOperatorUsernameIgnoreCaseOrderByCreatedAtDesc("senior.analyst"))
+        when(stepUpTokenDeliveryRepository.findTopByOrganizationIdAndOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+            ORGANIZATION_ID,
+            "senior.analyst"
+        ))
             .thenReturn(Optional.empty());
-        when(stepUpTokenDeliveryRepository.findByOperatorUsernameIgnoreCaseAndStatusIn(eq("senior.analyst"), any()))
+        when(stepUpTokenDeliveryRepository.findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusIn(
+            eq(ORGANIZATION_ID),
+            eq("senior.analyst"),
+            any()
+        ))
             .thenReturn(List.of());
         when(stepUpTokenDeliveryRepository.save(any(StepUpTokenDeliveryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -115,9 +128,13 @@ class StepUpAuthenticationServiceTest {
         FraudOperatorEntity operator = operator();
         when(fraudOperatorRepository.findByUsernameIgnoreCase("senior.analyst"))
             .thenReturn(Optional.of(operator));
-        when(stepUpOperatorSecurityStateRepository.findById(operator.getId()))
+        when(stepUpOperatorSecurityStateRepository.findByOrganizationIdAndOperatorUsernameIgnoreCase(
+            ORGANIZATION_ID,
+            operator.getUsername()
+        ))
             .thenReturn(Optional.of(new StepUpOperatorSecurityStateEntity(
                 operator.getId(),
+                ORGANIZATION_ID,
                 operator.getUsername(),
                 Instant.parse("2026-07-17T17:55:00Z"),
                 3,

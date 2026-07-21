@@ -21,6 +21,9 @@ public class PaymentRecordEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "payment_id", nullable = false, unique = true, length = 100)
     private String paymentId;
 
@@ -102,7 +105,52 @@ public class PaymentRecordEntity {
         Instant createdAt,
         Instant updatedAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            paymentId,
+            customerId,
+            amount,
+            currency,
+            paymentChannel,
+            merchantCategory,
+            latestAssessmentId,
+            latestRiskScore,
+            latestDecision,
+            paymentStatus,
+            challengeOutcome,
+            challengedAt,
+            challengeCompletedAt,
+            challengeCompletedBy,
+            challengeOutcomeNote,
+            createdAt,
+            updatedAt
+        );
+    }
+
+    public PaymentRecordEntity(
+        UUID id,
+        UUID organizationId,
+        String paymentId,
+        String customerId,
+        BigDecimal amount,
+        String currency,
+        String paymentChannel,
+        String merchantCategory,
+        UUID latestAssessmentId,
+        int latestRiskScore,
+        RiskDecision latestDecision,
+        PaymentStatus paymentStatus,
+        ChallengeOutcome challengeOutcome,
+        Instant challengedAt,
+        Instant challengeCompletedAt,
+        String challengeCompletedBy,
+        String challengeOutcomeNote,
+        Instant createdAt,
+        Instant updatedAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.paymentId = paymentId;
         this.customerId = customerId;
         this.amount = amount;
@@ -124,6 +172,10 @@ public class PaymentRecordEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getPaymentId() {

@@ -28,9 +28,12 @@ import org.springframework.data.jpa.domain.Specification;
 
 class FraudOutboundEventOperationsServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private FraudOutboundEventRepository fraudOutboundEventRepository;
     private ObjectProvider<FraudOutboundEventDispatcher> fraudOutboundEventDispatcherProvider;
     private FraudOutboundEventDispatcher fraudOutboundEventDispatcher;
+    private CurrentTenantService currentTenantService;
     private FraudOutboundEventOperationsService fraudOutboundEventOperationsService;
 
     @BeforeEach
@@ -38,9 +41,12 @@ class FraudOutboundEventOperationsServiceTest {
         fraudOutboundEventRepository = mock(FraudOutboundEventRepository.class);
         fraudOutboundEventDispatcher = mock(FraudOutboundEventDispatcher.class);
         fraudOutboundEventDispatcherProvider = new TestObjectProvider(null);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudOutboundEventOperationsService = new FraudOutboundEventOperationsService(
             fraudOutboundEventRepository,
-            fraudOutboundEventDispatcherProvider
+            fraudOutboundEventDispatcherProvider,
+            currentTenantService
         );
     }
 
@@ -110,7 +116,8 @@ class FraudOutboundEventOperationsServiceTest {
 
     @Test
     void retriesBatchOfFailedEvents() {
-        when(fraudOutboundEventRepository.findByStatusOrderByCreatedAtDesc(
+        when(fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+            ORGANIZATION_ID,
             FraudOutboundEventStatus.FAILED,
             Pageable.ofSize(2).withPage(0)
         )).thenReturn(List.of(
@@ -126,7 +133,8 @@ class FraudOutboundEventOperationsServiceTest {
 
     @Test
     void exportsFailedEventsAsCsv() {
-        when(fraudOutboundEventRepository.findByStatusOrderByCreatedAtDesc(
+        when(fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+            ORGANIZATION_ID,
             FraudOutboundEventStatus.FAILED,
             Pageable.ofSize(25).withPage(0)
         )).thenReturn(List.of(event(FraudOutboundEventStatus.FAILED, 3)));
@@ -143,7 +151,8 @@ class FraudOutboundEventOperationsServiceTest {
         fraudOutboundEventDispatcherProvider = new TestObjectProvider(fraudOutboundEventDispatcher);
         fraudOutboundEventOperationsService = new FraudOutboundEventOperationsService(
             fraudOutboundEventRepository,
-            fraudOutboundEventDispatcherProvider
+            fraudOutboundEventDispatcherProvider,
+            currentTenantService
         );
         when(fraudOutboundEventDispatcher.dispatchReadyEvents()).thenReturn(4);
 
@@ -196,6 +205,7 @@ class FraudOutboundEventOperationsServiceTest {
         Instant createdAt = Instant.parse("2026-07-17T17:00:00Z");
         return new FraudOutboundEventEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             "PAYMENT_RELEASED",
             "fraud-notifications",
             "PAY-2201",

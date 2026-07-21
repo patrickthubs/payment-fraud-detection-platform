@@ -83,10 +83,13 @@ The platform now has an explicit organization boundary for commercial SaaS evolu
 
 - `fraud_organizations` stores tenant identity, plan code, lifecycle status, and timestamps.
 - every persisted operator belongs to exactly one organization through `fraud_operators.organization_id`.
-- authenticated browser sessions return the operator's organization metadata so the UI and future APIs have a stable tenant context.
+- authenticated browser sessions return the operator's organization metadata so the UI and APIs have a stable tenant context.
+- core business records now carry `organization_id`: assessments, review cases, case timeline entries, payments, payment transitions, scoring profiles, outcomes, replay batches, replay items, and outbound events.
+- step-up delivery audit and operator security state rows are tenant-owned, so privileged-action verification history and rate-limit state stay scoped to the operator's organization.
+- operator-facing repository/service paths scope reads, writes, dashboards, exports, rules, outcomes, replay batches, and outbound incident workflows to the authenticated organization.
 - the local demo runs under `Signal Desk Demo Bank`, while production can seed real organizations without carrying reusable demo operators.
 
-This is the first tenant anchor. The next production hardening pass should add `organization_id` to assessments, payments, cases, outcomes, replay batches, outbound events, and step-up audit records, then enforce tenant-scoped repository queries at every data boundary.
+This uses a shared-database, tenant-column model. Background dispatcher jobs can still process ready outbound events globally because they are internal workers; operator-visible outbound views remain tenant-scoped. Local demo fallback is limited to explicit local/demo tenant resolution, while service and repository paths use explicit organization context.
 
 ## Tech Stack
 
@@ -222,7 +225,7 @@ These operators are created only by the explicit `local` profile (`fraud.securit
 
 The Angular console exchanges the password once for a server-side session. It does not store passwords in `localStorage` or attach a Basic Auth header to every browser request. HTTP Basic remains available only in local/test configuration for machine clients and command-line examples.
 
-Production machine clients use OAuth2 client-credentials access tokens. The `prod` profile requires `OAUTH2_ISSUER_URI`, validates the `aud` claim against `OAUTH2_AUDIENCE` (default `fraud-api`), and maps `OAUTH2_ROLES_CLAIM` (default `roles`) values such as `SCORING_CLIENT` to Spring Security roles. Browser sessions and machine bearer tokens coexist without sharing credentials.
+Production machine clients use OAuth2 client-credentials access tokens. The `prod` profile requires `OAUTH2_ISSUER_URI`, validates the `aud` claim against `OAUTH2_AUDIENCE` (default `fraud-api`), maps `OAUTH2_ROLES_CLAIM` (default `roles`) values such as `SCORING_CLIENT` to Spring Security roles, and resolves tenant context from `OAUTH2_ORGANIZATION_ID_CLAIM` (default `organization_id`). Browser sessions and machine bearer tokens coexist without sharing credentials.
 
 ### 4. Call the assessment endpoint
 
@@ -364,7 +367,7 @@ For a longer guided walkthrough, use [docs/api-workflows.md](C:/Users/ntsatsi.th
 - `POST /api/v1/security/step-up/token/resend`: invalidate the prior open token and deliver a fresh step-up token
 - `GET /api/v1/security/step-up/verify`: verify a token and elevate the current authenticated session
 - `POST /api/v1/security/step-up/revoke`: revoke the authenticated operator's outstanding open step-up tokens
-- `GET /api/v1/security/step-up/deliveries`: inspect step-up delivery audit history, with broader filtering for platform administrators
+- `GET /api/v1/security/step-up/deliveries`: inspect tenant-scoped step-up delivery audit history, with operator filtering for platform administrators
 
 ## End-To-End Flow
 
@@ -662,7 +665,6 @@ curl -X POST http://localhost:8080/api/v1/security/step-up/revoke ^
 
 ## Roadmap
 
-- add full tenant-scoped data isolation across assessments, payments, cases, outcomes, replays, outbound events, and audit records
 - add organization onboarding, invitations, plan limits, and admin user management
 - add Stripe or Paddle billing for plans, trials, invoices, and usage limits
 - integrate production email delivery with dedicated provider configuration and delivery observability

@@ -19,6 +19,9 @@ public class FraudOutcomeEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "assessment_id", nullable = false, unique = true)
     private UUID assessmentId;
 
@@ -70,7 +73,38 @@ public class FraudOutcomeEntity {
         Instant createdAt,
         Instant updatedAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            assessmentId,
+            outcomeLabel,
+            source,
+            actualLoss,
+            recoveredAmount,
+            notes,
+            labelledBy,
+            occurredAt,
+            createdAt,
+            updatedAt
+        );
+    }
+
+    public FraudOutcomeEntity(
+        UUID id,
+        UUID organizationId,
+        UUID assessmentId,
+        FraudOutcomeLabel outcomeLabel,
+        String source,
+        BigDecimal actualLoss,
+        BigDecimal recoveredAmount,
+        String notes,
+        String labelledBy,
+        Instant occurredAt,
+        Instant createdAt,
+        Instant updatedAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.assessmentId = assessmentId;
         update(outcomeLabel, source, actualLoss, recoveredAmount, notes, labelledBy, occurredAt, updatedAt);
         this.createdAt = createdAt;
@@ -97,6 +131,7 @@ public class FraudOutcomeEntity {
     }
 
     public UUID getId() { return id; }
+    public UUID getOrganizationId() { return organizationId; }
     public UUID getAssessmentId() { return assessmentId; }
     public FraudOutcomeLabel getOutcomeLabel() { return outcomeLabel; }
     public String getSource() { return source; }

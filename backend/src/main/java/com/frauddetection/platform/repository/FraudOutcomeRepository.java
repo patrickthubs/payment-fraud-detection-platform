@@ -11,7 +11,7 @@ import com.frauddetection.platform.model.FraudOutcomeLabel;
 import com.frauddetection.platform.model.RiskDecision;
 
 public interface FraudOutcomeRepository extends JpaRepository<FraudOutcomeEntity, UUID> {
-    Optional<FraudOutcomeEntity> findByAssessmentId(UUID assessmentId);
+    Optional<FraudOutcomeEntity> findByOrganizationIdAndAssessmentId(UUID organizationId, UUID assessmentId);
 
     @Query("""
         select assessment.decision as decision,
@@ -21,9 +21,11 @@ public interface FraudOutcomeRepository extends JpaRepository<FraudOutcomeEntity
                coalesce(sum(outcome.recoveredAmount), 0) as recoveredAmount
         from FraudOutcomeEntity outcome, FraudAssessmentRecordEntity assessment
         where assessment.id = outcome.assessmentId
+          and outcome.organizationId = :organizationId
+          and assessment.organizationId = :organizationId
         group by assessment.decision, outcome.outcomeLabel
         """)
-    List<QualityAggregateView> findQualityAggregates();
+    List<QualityAggregateView> findQualityAggregates(UUID organizationId);
 
     interface QualityAggregateView {
         RiskDecision getDecision();

@@ -7,5 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FraudReplayBatchRepository extends JpaRepository<FraudReplayBatchEntity, UUID> {
 
-    List<FraudReplayBatchEntity> findAllByOrderByCreatedAtDesc();
+    List<FraudReplayBatchEntity> findAllByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
+
+    java.util.Optional<FraudReplayBatchEntity> findByOrganizationIdAndId(UUID organizationId, UUID id);
 }

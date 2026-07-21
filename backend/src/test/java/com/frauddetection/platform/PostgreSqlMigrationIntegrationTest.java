@@ -54,7 +54,7 @@ class PostgreSqlMigrationIntegrationTest {
             Integer.class
         );
 
-        assertThat(successfulMigrations).isEqualTo(16);
+        assertThat(successfulMigrations).isEqualTo(18);
         Integer organizations = jdbcTemplate.queryForObject(
             "select count(*) from fraud_organizations",
             Integer.class
@@ -64,12 +64,28 @@ class PostgreSqlMigrationIntegrationTest {
         Instant now = Instant.parse("2026-07-18T10:00:00Z");
         FraudScoringProfileEntity profile = fraudScoringProfileRepository.saveAndFlush(
             new FraudScoringProfileEntity(
-                UUID.randomUUID(), 1, "PostgreSQL validation", 45, 65, 85,
+                UUID.randomUUID(), UUID.fromString("f2000000-0000-0000-0000-000000000001"), 1, "PostgreSQL validation", 45, 65, 85,
                 "Testcontainers repository validation", "integration-test", null, true, now, now, null
             )
         );
 
-        assertThat(fraudScoringProfileRepository.findByActiveTrue())
+        Integer tenantScopedPayments = jdbcTemplate.queryForObject(
+            "select count(*) from information_schema.columns where table_name = 'payment_records' and column_name = 'organization_id'",
+            Integer.class
+        );
+        assertThat(tenantScopedPayments).isOne();
+        Integer tenantScopedStepUpDeliveries = jdbcTemplate.queryForObject(
+            "select count(*) from information_schema.columns where table_name = 'step_up_token_deliveries' and column_name = 'organization_id'",
+            Integer.class
+        );
+        assertThat(tenantScopedStepUpDeliveries).isOne();
+        Integer tenantScopedStepUpSecurity = jdbcTemplate.queryForObject(
+            "select count(*) from information_schema.columns where table_name = 'step_up_operator_security_state' and column_name = 'organization_id'",
+            Integer.class
+        );
+        assertThat(tenantScopedStepUpSecurity).isOne();
+
+        assertThat(fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(UUID.fromString("f2000000-0000-0000-0000-000000000001")))
             .hasValueSatisfying(persistedProfile -> {
                 assertThat(persistedProfile.getId()).isEqualTo(profile.getId());
                 assertThat(persistedProfile.getProfileName()).isEqualTo("PostgreSQL validation");

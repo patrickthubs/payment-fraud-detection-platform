@@ -23,16 +23,23 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FraudOutboundEventServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     @Mock
     private FraudOutboundEventRepository fraudOutboundEventRepository;
+
+    @Mock
+    private CurrentTenantService currentTenantService;
 
     private FraudOutboundEventService fraudOutboundEventService;
 
     @BeforeEach
     void setUp() {
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudOutboundEventService = new FraudOutboundEventService(
             fraudOutboundEventRepository,
-            new ObjectMapper().findAndRegisterModules()
+            new ObjectMapper().findAndRegisterModules(),
+            currentTenantService
         );
         when(fraudOutboundEventRepository.save(any(FraudOutboundEventEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -65,6 +72,7 @@ class FraudOutboundEventServiceTest {
         verify(fraudOutboundEventRepository).save(captor.capture());
         FraudOutboundEventEntity saved = captor.getValue();
         assertThat(saved.getEventType()).isEqualTo("PaymentStatusChangedEvent");
+        assertThat(saved.getOrganizationId()).isEqualTo(ORGANIZATION_ID);
         assertThat(saved.getTopicName()).isEqualTo("payment-status-changed");
         assertThat(saved.getMessageKey()).isEqualTo("PAY-11");
         assertThat(saved.getStatus()).isEqualTo(FraudOutboundEventStatus.PENDING);

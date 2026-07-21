@@ -25,33 +25,29 @@ public class FraudScoringProfileService {
 
     private final FraudScoringProfileRepository fraudScoringProfileRepository;
     private final FraudScoringProperties fraudScoringProperties;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
     private final ObjectMapper objectMapper;
-
-    public FraudScoringProfileService(
-        FraudScoringProfileRepository fraudScoringProfileRepository,
-        FraudScoringProperties fraudScoringProperties,
-        Clock clock
-    ) {
-        this(fraudScoringProfileRepository, fraudScoringProperties, clock, new ObjectMapper());
-    }
 
     @Autowired
     public FraudScoringProfileService(
         FraudScoringProfileRepository fraudScoringProfileRepository,
         FraudScoringProperties fraudScoringProperties,
+        CurrentTenantService currentTenantService,
         Clock clock,
         ObjectMapper objectMapper
     ) {
         this.fraudScoringProfileRepository = fraudScoringProfileRepository;
         this.fraudScoringProperties = fraudScoringProperties;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
         this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
     public FraudScoringProfile activeProfile() {
-        return fraudScoringProfileRepository.findByActiveTrue()
+        UUID organizationId = currentTenantService.organizationId();
+        return fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(organizationId)
             .map(this::toProfile)
             .orElseGet(() -> FraudScoringProfile.from(fraudScoringProperties));
     }
@@ -63,14 +59,17 @@ public class FraudScoringProfileService {
 
     @Transactional(readOnly = true)
     public FraudScoringProfileResponse readActiveProfile() {
-        return fraudScoringProfileRepository.findByActiveTrue()
+        UUID organizationId = currentTenantService.organizationId();
+        return fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(organizationId)
             .map(this::toResponse)
             .orElseGet(this::systemDefaultResponse);
     }
 
     @Transactional(readOnly = true)
     public List<FraudScoringProfileResponse> listProfiles() {
-        List<FraudScoringProfileResponse> profiles = fraudScoringProfileRepository.findAllByOrderByVersionNumberDesc()
+        UUID organizationId = currentTenantService.organizationId();
+        List<FraudScoringProfileEntity> profileEntities = fraudScoringProfileRepository.findAllByOrganizationIdOrderByVersionNumberDesc(organizationId);
+        List<FraudScoringProfileResponse> profiles = profileEntities
             .stream()
             .map(this::toResponse)
             .toList();
@@ -79,7 +78,8 @@ public class FraudScoringProfileService {
 
     @Transactional
     public FraudScoringProfileResponse createProfile(FraudScoringProfileCreateRequest request, String operator) {
-        if (fraudScoringProfileRepository.existsByProfileNameIgnoreCase(request.profileName())) {
+        UUID organizationId = currentTenantService.organizationId();
+        if (fraudScoringProfileRepository.existsByOrganizationIdAndProfileNameIgnoreCase(organizationId, request.profileName())) {
             throw new FraudScoringProfileConflictException(
                 "A fraud scoring profile named '%s' already exists.".formatted(request.profileName())
             );
@@ -93,12 +93,13 @@ public class FraudScoringProfileService {
             request.rules() == null ? FraudRuleSet.defaults() : request.rules()
         );
         Instant createdAt = clock.instant();
-        int nextVersion = fraudScoringProfileRepository.findTopByOrderByVersionNumberDesc()
+        int nextVersion = fraudScoringProfileRepository.findTopByOrganizationIdOrderByVersionNumberDesc(organizationId)
             .map(profile -> profile.getVersionNumber() + 1)
             .orElse(1);
 
         FraudScoringProfileEntity entity = new FraudScoringProfileEntity(
             UUID.randomUUID(),
+            organizationId,
             nextVersion,
             request.profileName(),
             thresholds.challengeThreshold(),
@@ -127,16 +128,19 @@ public class FraudScoringProfileService {
         }
 
         Instant activatedAt = clock.instant();
-        fraudScoringProfileRepository.findByActiveTrue()
+        UUID organizationId = currentTenantService.organizationId();
+        fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(organizationId)
             .filter(activeProfile -> !activeProfile.getId().equals(profileId))
             .ifPresent(activeProfile -> activeProfile.deactivate(activatedAt));
-        fraudScoringProfileRepository.deactivateOtherProfiles(profileId);
+        fraudScoringProfileRepository.deactivateOtherProfiles(organizationId, profileId);
         entity.activate(activatedAt, operator);
         return toResponse(entity);
     }
 
     private FraudScoringProfileEntity findEntity(UUID profileId) {
+        UUID organizationId = currentTenantService.organizationId();
         return fraudScoringProfileRepository.findById(profileId)
+            .filter(profile -> profile.getOrganizationId().equals(organizationId))
             .orElseThrow(() -> new FraudScoringProfileNotFoundException(profileId));
     }
 

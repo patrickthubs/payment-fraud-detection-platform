@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -26,13 +27,17 @@ public class FraudOutboundEventOperationsService {
 
     private final FraudOutboundEventRepository fraudOutboundEventRepository;
     private final ObjectProvider<FraudOutboundEventDispatcher> fraudOutboundEventDispatcherProvider;
+    private final CurrentTenantService currentTenantService;
 
+    @Autowired
     public FraudOutboundEventOperationsService(
         FraudOutboundEventRepository fraudOutboundEventRepository,
-        ObjectProvider<FraudOutboundEventDispatcher> fraudOutboundEventDispatcherProvider
+        ObjectProvider<FraudOutboundEventDispatcher> fraudOutboundEventDispatcherProvider,
+        CurrentTenantService currentTenantService
     ) {
         this.fraudOutboundEventRepository = fraudOutboundEventRepository;
         this.fraudOutboundEventDispatcherProvider = fraudOutboundEventDispatcherProvider;
+        this.currentTenantService = currentTenantService;
     }
 
     @Transactional(readOnly = true)
@@ -46,7 +51,7 @@ public class FraudOutboundEventOperationsService {
     ) {
         PageRequest pageRequest = PageRequest.of(0, normalizeLimit(limit));
         Specification<FraudOutboundEventEntity> specification =
-            (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+            (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("organizationId"), currentTenantService.organizationId());
 
         if (status != null) {
             specification = specification.and((root, query, criteriaBuilder) ->
@@ -87,7 +92,9 @@ public class FraudOutboundEventOperationsService {
 
     @Transactional
     public FraudOutboundEventResponse retryEvent(UUID eventId) {
+        UUID organizationId = currentTenantService.organizationId();
         FraudOutboundEventEntity entity = fraudOutboundEventRepository.findById(eventId)
+            .filter(event -> event.getOrganizationId().equals(organizationId))
             .orElseThrow(() -> new FraudOutboundEventNotFoundException(eventId));
 
         if (entity.getStatus() == FraudOutboundEventStatus.DELIVERED) {
@@ -102,7 +109,9 @@ public class FraudOutboundEventOperationsService {
 
     @Transactional
     public FraudOutboundEventResponse addIncidentNote(UUID eventId, String operator, FraudOutboundIncidentNoteRequest request) {
+        UUID organizationId = currentTenantService.organizationId();
         FraudOutboundEventEntity entity = fraudOutboundEventRepository.findById(eventId)
+            .filter(event -> event.getOrganizationId().equals(organizationId))
             .orElseThrow(() -> new FraudOutboundEventNotFoundException(eventId));
         entity.updateOperatorNote(request.note(), operator, Instant.now());
         return toResponse(entity);
@@ -110,7 +119,9 @@ public class FraudOutboundEventOperationsService {
 
     @Transactional
     public FraudOutboundRetryBatchResponse retryFailedEvents(Integer limit) {
-        List<FraudOutboundEventEntity> failedEvents = fraudOutboundEventRepository.findByStatusOrderByCreatedAtDesc(
+        UUID organizationId = currentTenantService.organizationId();
+        List<FraudOutboundEventEntity> failedEvents = fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+            organizationId,
             FraudOutboundEventStatus.FAILED,
             PageRequest.of(0, normalizeLimit(limit))
         );
@@ -122,7 +133,9 @@ public class FraudOutboundEventOperationsService {
 
     @Transactional(readOnly = true)
     public String exportFailedEvents(Integer limit) {
-        List<FraudOutboundEventEntity> failedEvents = fraudOutboundEventRepository.findByStatusOrderByCreatedAtDesc(
+        UUID organizationId = currentTenantService.organizationId();
+        List<FraudOutboundEventEntity> failedEvents = fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+            organizationId,
             FraudOutboundEventStatus.FAILED,
             PageRequest.of(0, normalizeLimit(limit))
         );

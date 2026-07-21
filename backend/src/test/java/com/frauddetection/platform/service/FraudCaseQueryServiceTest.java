@@ -33,17 +33,23 @@ import org.springframework.data.jpa.domain.Specification;
 
 class FraudCaseQueryServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private FraudReviewCaseRepository fraudReviewCaseRepository;
     private FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository;
+    private CurrentTenantService currentTenantService;
     private FraudCaseQueryService fraudCaseQueryService;
 
     @BeforeEach
     void setUp() {
         fraudReviewCaseRepository = mock(FraudReviewCaseRepository.class);
         fraudCaseTimelineEntryRepository = mock(FraudCaseTimelineEntryRepository.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudCaseQueryService = new FraudCaseQueryService(
             fraudReviewCaseRepository,
             fraudCaseTimelineEntryRepository,
+            currentTenantService,
             Clock.fixed(Instant.parse("2026-07-17T10:00:00Z"), ZoneOffset.UTC)
         );
     }
@@ -143,11 +149,12 @@ class FraudCaseQueryServiceTest {
     @Test
     void returnsTimelineForCaseDetail() {
         UUID caseId = UUID.fromString("10000000-0000-0000-0000-000000000009");
-        when(fraudReviewCaseRepository.findById(caseId))
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId))
             .thenReturn(java.util.Optional.of(buildCase(caseId, "PAY-DETAIL-1001", "analyst.one", ReviewCaseStatus.OPEN, "2026-07-17T07:00:00Z")));
-        when(fraudCaseTimelineEntryRepository.findAllByCaseIdOrderByCreatedAtAsc(caseId))
+        when(fraudCaseTimelineEntryRepository.findAllByOrganizationIdAndCaseIdOrderByCreatedAtAsc(ORGANIZATION_ID, caseId))
             .thenReturn(List.of(new FraudCaseTimelineEntryEntity(
                 UUID.fromString("20000000-0000-0000-0000-000000000001"),
+                ORGANIZATION_ID,
                 caseId,
                 FraudCaseActionType.NOTE_ADDED,
                 "analyst.one",
@@ -202,6 +209,7 @@ class FraudCaseQueryServiceTest {
         Instant createdTimestamp = Instant.parse(createdAt);
         return new FraudReviewCaseEntity(
             caseId,
+            ORGANIZATION_ID,
             UUID.fromString("30000000-0000-0000-0000-000000000001"),
             paymentId,
             "CUST-FILTER-1001",

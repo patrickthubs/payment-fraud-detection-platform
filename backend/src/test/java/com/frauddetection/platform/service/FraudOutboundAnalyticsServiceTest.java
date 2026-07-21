@@ -18,21 +18,28 @@ import org.junit.jupiter.api.Test;
 
 class FraudOutboundAnalyticsServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private FraudOutboundEventRepository fraudOutboundEventRepository;
+    private CurrentTenantService currentTenantService;
     private FraudOutboundAnalyticsService fraudOutboundAnalyticsService;
 
     @BeforeEach
     void setUp() {
         fraudOutboundEventRepository = mock(FraudOutboundEventRepository.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudOutboundAnalyticsService = new FraudOutboundAnalyticsService(
             fraudOutboundEventRepository,
+            currentTenantService,
             Clock.fixed(Instant.parse("2026-07-17T18:00:00Z"), ZoneOffset.UTC)
         );
     }
 
     @Test
     void buildsRetryTrendsAndIncidentAgingAnalytics() {
-        when(fraudOutboundEventRepository.findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(
+        when(fraudOutboundEventRepository.findByOrganizationIdAndCreatedAtGreaterThanEqualOrderByCreatedAtAsc(
+            ORGANIZATION_ID,
             Instant.parse("2026-07-14T18:00:00Z")
         )).thenReturn(List.of(
             event(FraudOutboundEventStatus.DELIVERED, 2, Instant.parse("2026-07-15T10:00:00Z"), null),
@@ -44,7 +51,7 @@ class FraudOutboundAnalyticsServiceTest {
             ),
             event(FraudOutboundEventStatus.PENDING, 1, Instant.parse("2026-07-17T07:30:00Z"), null)
         ));
-        when(fraudOutboundEventRepository.findByStatusOrderByCreatedAtAsc(FraudOutboundEventStatus.FAILED))
+        when(fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtAsc(ORGANIZATION_ID, FraudOutboundEventStatus.FAILED))
             .thenReturn(List.of(
                 event(FraudOutboundEventStatus.FAILED, 3, Instant.parse("2026-07-17T17:50:00Z"), null),
                 event(
@@ -102,6 +109,7 @@ class FraudOutboundAnalyticsServiceTest {
     ) {
         return new FraudOutboundEventEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             "CASE_ESCALATED",
             "fraud-notifications",
             "PAY-401",

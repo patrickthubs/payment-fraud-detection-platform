@@ -8,6 +8,7 @@ import com.frauddetection.platform.exception.PaymentNotFoundException;
 import com.frauddetection.platform.repository.PaymentRecordRepository;
 import com.frauddetection.platform.repository.PaymentStateTransitionRepository;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -18,13 +19,17 @@ public class PaymentQueryService {
 
     private final PaymentRecordRepository paymentRecordRepository;
     private final PaymentStateTransitionRepository paymentStateTransitionRepository;
+    private final CurrentTenantService currentTenantService;
 
+    @Autowired
     public PaymentQueryService(
         PaymentRecordRepository paymentRecordRepository,
-        PaymentStateTransitionRepository paymentStateTransitionRepository
+        PaymentStateTransitionRepository paymentStateTransitionRepository,
+        CurrentTenantService currentTenantService
     ) {
         this.paymentRecordRepository = paymentRecordRepository;
         this.paymentStateTransitionRepository = paymentStateTransitionRepository;
+        this.currentTenantService = currentTenantService;
     }
 
     public List<PaymentStatusResponse> findAll() {
@@ -36,6 +41,7 @@ public class PaymentQueryService {
         int boundedPage = Math.max(0, page);
         int boundedSize = Math.min(Math.max(1, size), 200);
         return paymentRecordRepository.findAll(
+            (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("organizationId"), currentTenantService.organizationId()),
             PageRequest.of(boundedPage, boundedSize, Sort.by(Sort.Direction.DESC, "updatedAt"))
         ).stream()
             .map(entity -> toResponse(entity, List.of()))
@@ -44,11 +50,12 @@ public class PaymentQueryService {
 
     @Transactional(readOnly = true)
     public PaymentStatusResponse findByPaymentId(String paymentId) {
-        PaymentRecordEntity entity = paymentRecordRepository.findByPaymentId(paymentId)
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        PaymentRecordEntity entity = paymentRecordRepository.findByOrganizationIdAndPaymentId(organizationId, paymentId)
             .orElseThrow(() -> new PaymentNotFoundException(paymentId));
 
         List<PaymentTransitionResponse> transitions = paymentStateTransitionRepository
-            .findAllByPaymentIdOrderByCreatedAtAsc(paymentId)
+            .findAllByOrganizationIdAndPaymentIdOrderByCreatedAtAsc(organizationId, paymentId)
             .stream()
             .map(this::toTransitionResponse)
             .toList();

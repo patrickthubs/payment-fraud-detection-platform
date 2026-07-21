@@ -26,23 +26,30 @@ import org.junit.jupiter.api.Test;
 
 class FraudScoringProfileServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private FraudScoringProfileRepository fraudScoringProfileRepository;
+    private CurrentTenantService currentTenantService;
     private FraudScoringProfileService fraudScoringProfileService;
 
     @BeforeEach
     void setUp() {
         fraudScoringProfileRepository = mock(FraudScoringProfileRepository.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudScoringProfileService = new FraudScoringProfileService(
             fraudScoringProfileRepository,
             new FraudScoringProperties(45, 65, 85),
-            Clock.fixed(Instant.parse("2026-07-17T18:00:00Z"), ZoneOffset.UTC)
+            currentTenantService,
+            Clock.fixed(Instant.parse("2026-07-17T18:00:00Z"), ZoneOffset.UTC),
+            new com.fasterxml.jackson.databind.ObjectMapper()
         );
     }
 
     @Test
     void returnsSystemDefaultWhenNoStoredProfileExists() {
-        when(fraudScoringProfileRepository.findByActiveTrue()).thenReturn(Optional.empty());
-        when(fraudScoringProfileRepository.findAllByOrderByVersionNumberDesc()).thenReturn(List.of());
+        when(fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(ORGANIZATION_ID)).thenReturn(Optional.empty());
+        when(fraudScoringProfileRepository.findAllByOrganizationIdOrderByVersionNumberDesc(ORGANIZATION_ID)).thenReturn(List.of());
 
         FraudScoringProfileResponse response = fraudScoringProfileService.readActiveProfile();
 
@@ -56,8 +63,8 @@ class FraudScoringProfileServiceTest {
 
     @Test
     void createsDraftProfileWithNextVersionNumber() {
-        when(fraudScoringProfileRepository.existsByProfileNameIgnoreCase("July tuning profile")).thenReturn(false);
-        when(fraudScoringProfileRepository.findTopByOrderByVersionNumberDesc())
+        when(fraudScoringProfileRepository.existsByOrganizationIdAndProfileNameIgnoreCase(ORGANIZATION_ID, "July tuning profile")).thenReturn(false);
+        when(fraudScoringProfileRepository.findTopByOrganizationIdOrderByVersionNumberDesc(ORGANIZATION_ID))
             .thenReturn(Optional.of(profile(UUID.randomUUID(), 2, false)));
         when(fraudScoringProfileRepository.save(any(FraudScoringProfileEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -80,7 +87,7 @@ class FraudScoringProfileServiceTest {
 
     @Test
     void rejectsDuplicateProfileName() {
-        when(fraudScoringProfileRepository.existsByProfileNameIgnoreCase("July tuning profile")).thenReturn(true);
+        when(fraudScoringProfileRepository.existsByOrganizationIdAndProfileNameIgnoreCase(ORGANIZATION_ID, "July tuning profile")).thenReturn(true);
 
         assertThatThrownBy(() -> fraudScoringProfileService.createProfile(
             new FraudScoringProfileCreateRequest(
@@ -102,7 +109,7 @@ class FraudScoringProfileServiceTest {
         FraudScoringProfileEntity candidate = profile(candidateId, 3, false);
 
         when(fraudScoringProfileRepository.findById(candidateId)).thenReturn(Optional.of(candidate));
-        when(fraudScoringProfileRepository.findByActiveTrue()).thenReturn(Optional.of(currentActive));
+        when(fraudScoringProfileRepository.findByOrganizationIdAndActiveTrue(ORGANIZATION_ID)).thenReturn(Optional.of(currentActive));
 
         FraudScoringProfileResponse response = fraudScoringProfileService.activateProfile(
             candidateId,
@@ -113,7 +120,7 @@ class FraudScoringProfileServiceTest {
         assertThat(response.active()).isTrue();
         assertThat(response.activatedBy()).isEqualTo("senior.analyst");
         assertThat(currentActive.isActive()).isFalse();
-        verify(fraudScoringProfileRepository).deactivateOtherProfiles(candidateId);
+        verify(fraudScoringProfileRepository).deactivateOtherProfiles(ORGANIZATION_ID, candidateId);
     }
 
     @Test
@@ -130,13 +137,14 @@ class FraudScoringProfileServiceTest {
         );
 
         assertThat(response.active()).isTrue();
-        verify(fraudScoringProfileRepository, never()).deactivateOtherProfiles(candidateId);
+        verify(fraudScoringProfileRepository, never()).deactivateOtherProfiles(ORGANIZATION_ID, candidateId);
     }
 
     private FraudScoringProfileEntity profile(UUID id, int versionNumber, boolean active) {
         Instant timestamp = Instant.parse("2026-07-17T12:00:00Z");
         return new FraudScoringProfileEntity(
             id,
+            ORGANIZATION_ID,
             versionNumber,
             "Profile %d".formatted(versionNumber),
             45,

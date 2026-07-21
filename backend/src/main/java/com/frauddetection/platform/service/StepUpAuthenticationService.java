@@ -66,6 +66,7 @@ public class StepUpAuthenticationService {
     private final StepUpTokenDeliveryRepository stepUpTokenDeliveryRepository;
     private final StepUpDeliveryGateway stepUpDeliveryGateway;
     private final JdbcOperations jdbcOperations;
+    private final CurrentTenantService currentTenantService;
 
     public StepUpAuthenticationService(
         OneTimeTokenService oneTimeTokenService,
@@ -75,7 +76,8 @@ public class StepUpAuthenticationService {
         StepUpOperatorSecurityStateRepository stepUpOperatorSecurityStateRepository,
         StepUpTokenDeliveryRepository stepUpTokenDeliveryRepository,
         StepUpDeliveryGateway stepUpDeliveryGateway,
-        JdbcOperations jdbcOperations
+        JdbcOperations jdbcOperations,
+        CurrentTenantService currentTenantService
     ) {
         this.oneTimeTokenService = oneTimeTokenService;
         this.fraudStepUpProperties = fraudStepUpProperties;
@@ -85,6 +87,7 @@ public class StepUpAuthenticationService {
         this.stepUpTokenDeliveryRepository = stepUpTokenDeliveryRepository;
         this.stepUpDeliveryGateway = stepUpDeliveryGateway;
         this.jdbcOperations = jdbcOperations;
+        this.currentTenantService = currentTenantService;
         this.protectedRouteMatcher = new OrRequestMatcher(
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/fraud-cases/export"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/fraud-cases/{caseId}/release"),
@@ -107,10 +110,12 @@ public class StepUpAuthenticationService {
 
     public StepUpVerificationResponse verifyToken(String operator, String token, HttpServletRequest request) {
         Instant now = Instant.now(clock);
-        StepUpOperatorSecurityStateEntity securityState = resolveSecurityState(operator, now);
+        FraudOperatorEntity operatorEntity = resolveOperator(operator);
+        UUID organizationId = operatorEntity.getOrganization().getId();
+        StepUpOperatorSecurityStateEntity securityState = resolveSecurityState(operatorEntity, now);
         assertNotLocked(securityState, now);
         String tokenHash = hashToken(token);
-        StepUpTokenDeliveryEntity delivery = stepUpTokenDeliveryRepository.findByTokenHash(tokenHash)
+        StepUpTokenDeliveryEntity delivery = stepUpTokenDeliveryRepository.findByOrganizationIdAndTokenHash(organizationId, tokenHash)
             .orElseThrow(() -> recordVerificationFailure(
                 securityState,
                 now,
@@ -178,9 +183,12 @@ public class StepUpAuthenticationService {
 
     public StepUpRevokeResponse revoke(String operator, HttpServletRequest request) {
         Instant now = Instant.now(clock);
-        expireOutstandingDeliveries(operator, now);
+        FraudOperatorEntity operatorEntity = resolveOperator(operator);
+        UUID organizationId = operatorEntity.getOrganization().getId();
+        expireOutstandingDeliveries(organizationId, operator, now);
         List<StepUpTokenDeliveryEntity> activeDeliveries = stepUpTokenDeliveryRepository
-            .findByOperatorUsernameIgnoreCaseAndStatusIn(
+            .findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusIn(
+                organizationId,
                 operator,
                 List.of(StepUpDeliveryStatus.PENDING, StepUpDeliveryStatus.SENT)
             );
@@ -207,18 +215,21 @@ public class StepUpAuthenticationService {
     ) {
         int resolvedLimit = limit == null ? 20 : Math.max(1, Math.min(limit, 100));
         Instant now = Instant.now(clock);
-        expireOutstandingDeliveriesForAll(now);
+        UUID organizationId = currentTenantService.organizationId();
+        expireOutstandingDeliveries(organizationId, now);
 
         if (!platformAdmin) {
             return map(status == null
                 ? stepUpTokenDeliveryRepository
-                    .findByOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+                    .findByOrganizationIdAndOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+                        organizationId,
                         requestingOperator,
                         PageRequest.of(0, resolvedLimit)
                     )
                     .getContent()
                 : stepUpTokenDeliveryRepository
-                    .findByOperatorUsernameIgnoreCaseAndStatusOrderByCreatedAtDesc(
+                    .findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusOrderByCreatedAtDesc(
+                        organizationId,
                         requestingOperator,
                         status,
                         PageRequest.of(0, resolvedLimit)
@@ -229,13 +240,15 @@ public class StepUpAuthenticationService {
         if (operatorFilter != null && !operatorFilter.isBlank()) {
             return map(status == null
                 ? stepUpTokenDeliveryRepository
-                    .findByOperatorUsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                    .findByOrganizationIdAndOperatorUsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                        organizationId,
                         operatorFilter,
                         PageRequest.of(0, resolvedLimit)
                     )
                     .getContent()
                 : stepUpTokenDeliveryRepository
-                    .findByOperatorUsernameContainingIgnoreCaseAndStatusOrderByCreatedAtDesc(
+                    .findByOrganizationIdAndOperatorUsernameContainingIgnoreCaseAndStatusOrderByCreatedAtDesc(
+                        organizationId,
                         operatorFilter,
                         status,
                         PageRequest.of(0, resolvedLimit)
@@ -244,8 +257,12 @@ public class StepUpAuthenticationService {
         }
 
         return map(status == null
-            ? stepUpTokenDeliveryRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, resolvedLimit)).getContent()
-            : stepUpTokenDeliveryRepository.findByStatusOrderByCreatedAtDesc(status, PageRequest.of(0, resolvedLimit)).getContent());
+            ? stepUpTokenDeliveryRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId, PageRequest.of(0, resolvedLimit)).getContent()
+            : stepUpTokenDeliveryRepository.findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+                organizationId,
+                status,
+                PageRequest.of(0, resolvedLimit)
+            ).getContent());
     }
 
     public boolean hasValidStepUp(Authentication authentication, HttpServletRequest request) {
@@ -308,6 +325,7 @@ public class StepUpAuthenticationService {
             .orElseThrow(() -> new StepUpDeliveryFailedException(
                 "The authenticated operator could not be resolved for step-up delivery."
             ));
+        UUID organizationId = operatorEntity.getOrganization().getId();
         StepUpOperatorSecurityStateEntity securityState = resolveSecurityState(operatorEntity, now);
         assertNotLocked(securityState, now);
         securityState.registerIssueAttempt(now, fraudStepUpProperties.issueWindow());
@@ -330,14 +348,14 @@ public class StepUpAuthenticationService {
             );
         }
         stepUpOperatorSecurityStateRepository.save(securityState);
-        expireOutstandingDeliveries(operator, now);
+        expireOutstandingDeliveries(organizationId, operator, now);
         int resendSequence = stepUpTokenDeliveryRepository
-            .findTopByOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(operator)
+            .findTopByOrganizationIdAndOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(organizationId, operator)
             .map(previous -> previous.getResendSequence() + 1)
             .orElse(0);
 
         if (revokeExisting) {
-            revokeOutstandingTokens(operator, now, TOKEN_SUPERSEDED_REASON);
+            revokeOutstandingTokens(organizationId, operator, now, TOKEN_SUPERSEDED_REASON);
         }
 
         OneTimeToken token = oneTimeTokenService.generate(
@@ -348,6 +366,7 @@ public class StepUpAuthenticationService {
         StepUpDeliveryChannel deliveryChannel = resolveDeliveryChannel(operatorEntity);
         StepUpTokenDeliveryEntity delivery = stepUpTokenDeliveryRepository.save(new StepUpTokenDeliveryEntity(
             UUID.randomUUID(),
+            organizationId,
             operatorEntity.getId(),
             operatorEntity.getUsername(),
             deliveryChannel,
@@ -397,9 +416,10 @@ public class StepUpAuthenticationService {
         );
     }
 
-    private void revokeOutstandingTokens(String operator, Instant revokedAt, String reason) {
+    private void revokeOutstandingTokens(UUID organizationId, String operator, Instant revokedAt, String reason) {
         List<StepUpTokenDeliveryEntity> openDeliveries = stepUpTokenDeliveryRepository
-            .findByOperatorUsernameIgnoreCaseAndStatusIn(
+            .findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusIn(
+                organizationId,
                 operator,
                 List.of(StepUpDeliveryStatus.PENDING, StepUpDeliveryStatus.SENT)
             );
@@ -410,9 +430,10 @@ public class StepUpAuthenticationService {
         }
     }
 
-    private void expireOutstandingDeliveries(String operator, Instant now) {
+    private void expireOutstandingDeliveries(UUID organizationId, String operator, Instant now) {
         List<StepUpTokenDeliveryEntity> openDeliveries = stepUpTokenDeliveryRepository
-            .findByOperatorUsernameIgnoreCaseAndStatusIn(
+            .findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusIn(
+                organizationId,
                 operator,
                 List.of(StepUpDeliveryStatus.PENDING, StepUpDeliveryStatus.SENT)
             );
@@ -428,10 +449,11 @@ public class StepUpAuthenticationService {
         }
     }
 
-    private void expireOutstandingDeliveriesForAll(Instant now) {
-        List<StepUpTokenDeliveryEntity> openDeliveries = stepUpTokenDeliveryRepository.findAll().stream()
-            .filter(StepUpTokenDeliveryEntity::isOpen)
-            .toList();
+    private void expireOutstandingDeliveries(UUID organizationId, Instant now) {
+        List<StepUpTokenDeliveryEntity> openDeliveries = stepUpTokenDeliveryRepository.findByOrganizationIdAndStatusIn(
+            organizationId,
+            List.of(StepUpDeliveryStatus.PENDING, StepUpDeliveryStatus.SENT)
+        );
         boolean changed = false;
         for (StepUpTokenDeliveryEntity delivery : openDeliveries) {
             if (delivery.getExpiresAt().isBefore(now)) {
@@ -520,11 +542,14 @@ public class StepUpAuthenticationService {
         return operator.toUpperCase(Locale.ROOT);
     }
 
-    private StepUpOperatorSecurityStateEntity resolveSecurityState(String operator, Instant now) {
-        return stepUpOperatorSecurityStateRepository.findByOperatorUsernameIgnoreCase(operator)
+    private StepUpOperatorSecurityStateEntity resolveSecurityState(FraudOperatorEntity operatorEntity, Instant now) {
+        UUID organizationId = operatorEntity.getOrganization().getId();
+        return stepUpOperatorSecurityStateRepository
+            .findByOrganizationIdAndOperatorUsernameIgnoreCase(organizationId, operatorEntity.getUsername())
             .orElseGet(() -> new StepUpOperatorSecurityStateEntity(
-                UUID.randomUUID(),
-                operator,
+                operatorEntity.getId(),
+                organizationId,
+                operatorEntity.getUsername(),
                 null,
                 0,
                 null,
@@ -536,20 +561,10 @@ public class StepUpAuthenticationService {
             ));
     }
 
-    private StepUpOperatorSecurityStateEntity resolveSecurityState(FraudOperatorEntity operatorEntity, Instant now) {
-        return stepUpOperatorSecurityStateRepository.findByOperatorUsernameIgnoreCase(operatorEntity.getUsername())
-            .or(() -> stepUpOperatorSecurityStateRepository.findById(operatorEntity.getId()))
-            .orElseGet(() -> new StepUpOperatorSecurityStateEntity(
-                operatorEntity.getId(),
-                operatorEntity.getUsername(),
-                null,
-                0,
-                null,
-                0,
-                null,
-                null,
-                now,
-                now
+    private FraudOperatorEntity resolveOperator(String operator) {
+        return fraudOperatorRepository.findByUsernameIgnoreCase(operator)
+            .orElseThrow(() -> new StepUpDeliveryFailedException(
+                "The authenticated operator could not be resolved for step-up delivery."
             ));
     }
 

@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +28,19 @@ public class FraudReplayBatchService {
     private final FraudReplayBatchRepository fraudReplayBatchRepository;
     private final FraudReplayBatchItemRepository fraudReplayBatchItemRepository;
     private final FraudSimulationService fraudSimulationService;
+    private final CurrentTenantService currentTenantService;
 
+    @Autowired
     public FraudReplayBatchService(
         FraudReplayBatchRepository fraudReplayBatchRepository,
         FraudReplayBatchItemRepository fraudReplayBatchItemRepository,
-        FraudSimulationService fraudSimulationService
+        FraudSimulationService fraudSimulationService,
+        CurrentTenantService currentTenantService
     ) {
         this.fraudReplayBatchRepository = fraudReplayBatchRepository;
         this.fraudReplayBatchItemRepository = fraudReplayBatchItemRepository;
         this.fraudSimulationService = fraudSimulationService;
+        this.currentTenantService = currentTenantService;
     }
 
     @Transactional
@@ -44,9 +49,11 @@ public class FraudReplayBatchService {
             ? fraudSimulationService.activeProfile()
             : fraudSimulationService.mergeOverrides(request.overrides());
         Instant createdAt = Instant.now();
+        UUID organizationId = currentTenantService.organizationId();
 
         FraudReplayBatchEntity batch = fraudReplayBatchRepository.save(new FraudReplayBatchEntity(
             UUID.randomUUID(),
+            organizationId,
             request.batchName().trim(),
             request.scenarios().size(),
             profile.challengeThreshold(),
@@ -57,7 +64,7 @@ public class FraudReplayBatchService {
         ));
 
         List<FraudReplayBatchItemEntity> items = IntStream.range(0, request.scenarios().size())
-            .mapToObj(index -> toItemEntity(batch.getId(), index, request, profile, createdAt))
+            .mapToObj(index -> toItemEntity(organizationId, batch.getId(), index, request, profile, createdAt))
             .toList();
 
         List<FraudReplayBatchItemEntity> savedItems = fraudReplayBatchItemRepository.saveAll(items);
@@ -66,19 +73,23 @@ public class FraudReplayBatchService {
 
     @Transactional(readOnly = true)
     public List<FraudReplayBatchResponse> findAll() {
-        return fraudReplayBatchRepository.findAllByOrderByCreatedAtDesc().stream()
-            .map(batch -> toResponse(batch, fraudReplayBatchItemRepository.findAllByBatchIdOrderByScenarioIndexAsc(batch.getId())))
+        UUID organizationId = currentTenantService.organizationId();
+        return fraudReplayBatchRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
+            .map(batch -> toResponse(batch, fraudReplayBatchItemRepository.findAllByOrganizationIdAndBatchIdOrderByScenarioIndexAsc(organizationId, batch.getId())))
             .toList();
     }
 
     @Transactional(readOnly = true)
     public FraudReplayBatchResponse findById(UUID batchId) {
-        FraudReplayBatchEntity batch = fraudReplayBatchRepository.findById(batchId)
+        UUID organizationId = currentTenantService.organizationId();
+        FraudReplayBatchEntity batch = fraudReplayBatchRepository.findByOrganizationIdAndId(organizationId, batchId)
             .orElseThrow(() -> new FraudReplayBatchNotFoundException(batchId));
-        return toResponse(batch, fraudReplayBatchItemRepository.findAllByBatchIdOrderByScenarioIndexAsc(batchId));
+        List<FraudReplayBatchItemEntity> items = fraudReplayBatchItemRepository.findAllByOrganizationIdAndBatchIdOrderByScenarioIndexAsc(organizationId, batchId);
+        return toResponse(batch, items);
     }
 
     private FraudReplayBatchItemEntity toItemEntity(
+        UUID organizationId,
         UUID batchId,
         int index,
         FraudReplayBatchCreateRequest request,
@@ -91,6 +102,7 @@ public class FraudReplayBatchService {
 
         return new FraudReplayBatchItemEntity(
             UUID.randomUUID(),
+            organizationId,
             batchId,
             index,
             scenario.paymentId(),

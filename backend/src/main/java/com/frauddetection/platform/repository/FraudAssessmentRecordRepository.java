@@ -11,19 +11,33 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface FraudAssessmentRecordRepository extends JpaRepository<FraudAssessmentRecordEntity, UUID> {
 
-    Optional<FraudAssessmentRecordEntity> findByIdempotencyKey(String idempotencyKey);
+    Optional<FraudAssessmentRecordEntity> findByOrganizationIdAndIdempotencyKey(UUID organizationId, String idempotencyKey);
 
-    @Query("select count(distinct record.customerId) from FraudAssessmentRecordEntity record")
-    long countDistinctCustomerIds();
+    boolean existsByOrganizationIdAndId(UUID organizationId, UUID id);
 
-    @Query("select coalesce(avg(record.riskScore), 0) from FraudAssessmentRecordEntity record")
-    double averageRiskScore();
+    long countByOrganizationId(UUID organizationId);
 
-    @Query("select record.decision as decision, count(record) as total from FraudAssessmentRecordEntity record group by record.decision")
-    List<DecisionCountView> countGroupedByDecision();
+    @Query("select count(distinct record.customerId) from FraudAssessmentRecordEntity record where record.organizationId = :organizationId")
+    long countDistinctCustomerIds(UUID organizationId);
 
-    @Query("select record.velocitySource as velocitySource, count(record) as total from FraudAssessmentRecordEntity record group by record.velocitySource")
-    List<VelocitySourceCountView> countGroupedByVelocitySource();
+    @Query("select coalesce(avg(record.riskScore), 0) from FraudAssessmentRecordEntity record where record.organizationId = :organizationId")
+    double averageRiskScore(UUID organizationId);
+
+    @Query("""
+        select record.decision as decision, count(record) as total
+        from FraudAssessmentRecordEntity record
+        where record.organizationId = :organizationId
+        group by record.decision
+        """)
+    List<DecisionCountView> countGroupedByDecision(UUID organizationId);
+
+    @Query("""
+        select record.velocitySource as velocitySource, count(record) as total
+        from FraudAssessmentRecordEntity record
+        where record.organizationId = :organizationId
+        group by record.velocitySource
+        """)
+    List<VelocitySourceCountView> countGroupedByVelocitySource(UUID organizationId);
 
     interface DecisionCountView {
         RiskDecision getDecision();

@@ -19,6 +19,9 @@ public class FraudReplayBatchItemEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "batch_id", nullable = false)
     private UUID batchId;
 
@@ -76,7 +79,42 @@ public class FraudReplayBatchItemEntity {
         String triggeredFactorCodes,
         Instant createdAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            batchId,
+            scenarioIndex,
+            paymentId,
+            customerId,
+            riskScore,
+            decision,
+            projectedPaymentStatus,
+            velocitySource,
+            reviewCaseWouldBeCreated,
+            summary,
+            triggeredFactorCodes,
+            createdAt
+        );
+    }
+
+    public FraudReplayBatchItemEntity(
+        UUID id,
+        UUID organizationId,
+        UUID batchId,
+        int scenarioIndex,
+        String paymentId,
+        String customerId,
+        int riskScore,
+        RiskDecision decision,
+        PaymentStatus projectedPaymentStatus,
+        VelocitySource velocitySource,
+        boolean reviewCaseWouldBeCreated,
+        String summary,
+        String triggeredFactorCodes,
+        Instant createdAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.batchId = batchId;
         this.scenarioIndex = scenarioIndex;
         this.paymentId = paymentId;
@@ -93,6 +131,10 @@ public class FraudReplayBatchItemEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public UUID getBatchId() {

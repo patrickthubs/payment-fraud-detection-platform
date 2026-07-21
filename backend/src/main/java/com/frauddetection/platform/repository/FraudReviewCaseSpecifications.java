@@ -4,6 +4,7 @@ import com.frauddetection.platform.entity.FraudReviewCaseEntity;
 import com.frauddetection.platform.model.ReviewCaseStatus;
 import com.frauddetection.platform.service.FraudCaseFilterCriteria;
 import java.time.Instant;
+import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
 public final class FraudReviewCaseSpecifications {
@@ -12,10 +13,12 @@ public final class FraudReviewCaseSpecifications {
     }
 
     public static Specification<FraudReviewCaseEntity> forCriteria(
+        UUID organizationId,
         FraudCaseFilterCriteria criteria,
         Instant breachThreshold
     ) {
         return Specification.<FraudReviewCaseEntity>unrestricted()
+            .and(hasOrganizationId(organizationId))
             .and(hasStatus(criteria.status()))
             .and(hasAssignee(criteria.assignee()))
             .and(hasMinimumRiskScore(criteria.minRiskScore()))
@@ -26,6 +29,10 @@ public final class FraudReviewCaseSpecifications {
             .and(hasCustomerId(criteria.customerId()))
             .and(createdOnOrAfter(criteria.createdFrom()))
             .and(createdOnOrBefore(criteria.createdTo()));
+    }
+
+    private static Specification<FraudReviewCaseEntity> hasOrganizationId(UUID organizationId) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("organizationId"), organizationId);
     }
 
     private static Specification<FraudReviewCaseEntity> hasStatus(ReviewCaseStatus status) {

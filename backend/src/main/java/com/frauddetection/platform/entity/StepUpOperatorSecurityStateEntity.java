@@ -16,7 +16,10 @@ public class StepUpOperatorSecurityStateEntity {
     @Column(name = "operator_id", nullable = false)
     private UUID operatorId;
 
-    @Column(name = "operator_username", nullable = false, unique = true, length = 120)
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
+    @Column(name = "operator_username", nullable = false, length = 120)
     private String operatorUsername;
 
     @Column(name = "issue_window_started_at")
@@ -48,6 +51,7 @@ public class StepUpOperatorSecurityStateEntity {
 
     public StepUpOperatorSecurityStateEntity(
         UUID operatorId,
+        UUID organizationId,
         String operatorUsername,
         Instant issueWindowStartedAt,
         int issueAttemptCount,
@@ -59,6 +63,7 @@ public class StepUpOperatorSecurityStateEntity {
         Instant updatedAt
     ) {
         this.operatorId = operatorId;
+        this.organizationId = organizationId;
         this.operatorUsername = operatorUsername;
         this.issueWindowStartedAt = issueWindowStartedAt;
         this.issueAttemptCount = issueAttemptCount;
@@ -109,6 +114,10 @@ public class StepUpOperatorSecurityStateEntity {
 
     public UUID getOperatorId() {
         return operatorId;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public String getOperatorUsername() {

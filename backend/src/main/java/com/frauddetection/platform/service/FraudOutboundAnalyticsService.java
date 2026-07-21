@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,13 +26,17 @@ public class FraudOutboundAnalyticsService {
     private static final int MAX_WINDOW_DAYS = 30;
 
     private final FraudOutboundEventRepository fraudOutboundEventRepository;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
 
+    @Autowired
     public FraudOutboundAnalyticsService(
         FraudOutboundEventRepository fraudOutboundEventRepository,
+        CurrentTenantService currentTenantService,
         Clock clock
     ) {
         this.fraudOutboundEventRepository = fraudOutboundEventRepository;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
     }
 
@@ -40,10 +45,11 @@ public class FraudOutboundAnalyticsService {
         int windowDays = normalizeWindowDays(days);
         Instant snapshotAt = clock.instant();
         Instant createdAfter = snapshotAt.minus(Duration.ofDays(windowDays));
-        List<FraudOutboundEventEntity> eventsInWindow = fraudOutboundEventRepository
-            .findByCreatedAtGreaterThanEqualOrderByCreatedAtAsc(createdAfter);
-        List<FraudOutboundEventEntity> failedEvents = fraudOutboundEventRepository
-            .findByStatusOrderByCreatedAtAsc(FraudOutboundEventStatus.FAILED);
+        java.util.UUID organizationId = currentTenantService.organizationId();
+        List<FraudOutboundEventEntity> eventsInWindow =
+            fraudOutboundEventRepository.findByOrganizationIdAndCreatedAtGreaterThanEqualOrderByCreatedAtAsc(organizationId, createdAfter);
+        List<FraudOutboundEventEntity> failedEvents =
+            fraudOutboundEventRepository.findByOrganizationIdAndStatusOrderByCreatedAtAsc(organizationId, FraudOutboundEventStatus.FAILED);
 
         return new FraudOutboundAnalyticsResponse(
             snapshotAt,

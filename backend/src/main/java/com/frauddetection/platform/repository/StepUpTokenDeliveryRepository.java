@@ -12,39 +12,53 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StepUpTokenDeliveryRepository extends JpaRepository<StepUpTokenDeliveryEntity, UUID> {
 
-    Optional<StepUpTokenDeliveryEntity> findByTokenHash(String tokenHash);
+    Optional<StepUpTokenDeliveryEntity> findByOrganizationIdAndTokenHash(UUID organizationId, String tokenHash);
 
-    List<StepUpTokenDeliveryEntity> findByOperatorUsernameIgnoreCaseAndStatusIn(
+    List<StepUpTokenDeliveryEntity> findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusIn(
+        UUID organizationId,
         String operatorUsername,
         Collection<StepUpDeliveryStatus> statuses
     );
 
-    Optional<StepUpTokenDeliveryEntity> findTopByOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(String operatorUsername);
+    List<StepUpTokenDeliveryEntity> findByOrganizationIdAndStatusIn(
+        UUID organizationId,
+        Collection<StepUpDeliveryStatus> statuses
+    );
 
-    Page<StepUpTokenDeliveryEntity> findByOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+    Optional<StepUpTokenDeliveryEntity> findTopByOrganizationIdAndOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+        UUID organizationId,
+        String operatorUsername
+    );
+
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdAndOperatorUsernameIgnoreCaseOrderByCreatedAtDesc(
+        UUID organizationId,
         String operatorUsername,
         Pageable pageable
     );
 
-    Page<StepUpTokenDeliveryEntity> findByOperatorUsernameIgnoreCaseAndStatusOrderByCreatedAtDesc(
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdAndOperatorUsernameIgnoreCaseAndStatusOrderByCreatedAtDesc(
+        UUID organizationId,
         String operatorUsername,
         StepUpDeliveryStatus status,
         Pageable pageable
     );
 
-    Page<StepUpTokenDeliveryEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId, Pageable pageable);
 
-    Page<StepUpTokenDeliveryEntity> findByStatusOrderByCreatedAtDesc(
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdAndStatusOrderByCreatedAtDesc(
+        UUID organizationId,
         StepUpDeliveryStatus status,
         Pageable pageable
     );
 
-    Page<StepUpTokenDeliveryEntity> findByOperatorUsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdAndOperatorUsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+        UUID organizationId,
         String operatorUsername,
         Pageable pageable
     );
 
-    Page<StepUpTokenDeliveryEntity> findByOperatorUsernameContainingIgnoreCaseAndStatusOrderByCreatedAtDesc(
+    Page<StepUpTokenDeliveryEntity> findByOrganizationIdAndOperatorUsernameContainingIgnoreCaseAndStatusOrderByCreatedAtDesc(
+        UUID organizationId,
         String operatorUsername,
         StepUpDeliveryStatus status,
         Pageable pageable

@@ -27,9 +27,12 @@ import org.junit.jupiter.api.Test;
 
 class FraudReplayBatchServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     private FraudReplayBatchRepository fraudReplayBatchRepository;
     private FraudReplayBatchItemRepository fraudReplayBatchItemRepository;
     private FraudSimulationService fraudSimulationService;
+    private CurrentTenantService currentTenantService;
     private FraudReplayBatchService fraudReplayBatchService;
 
     @BeforeEach
@@ -37,10 +40,13 @@ class FraudReplayBatchServiceTest {
         fraudReplayBatchRepository = mock(FraudReplayBatchRepository.class);
         fraudReplayBatchItemRepository = mock(FraudReplayBatchItemRepository.class);
         fraudSimulationService = mock(FraudSimulationService.class);
+        currentTenantService = mock(CurrentTenantService.class);
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudReplayBatchService = new FraudReplayBatchService(
             fraudReplayBatchRepository,
             fraudReplayBatchItemRepository,
-            fraudSimulationService
+            fraudSimulationService,
+            currentTenantService
         );
     }
 
@@ -105,6 +111,7 @@ class FraudReplayBatchServiceTest {
         UUID batchId = UUID.randomUUID();
         FraudReplayBatchEntity batch = new FraudReplayBatchEntity(
             batchId,
+            ORGANIZATION_ID,
             "Stored replay",
             1,
             45,
@@ -115,6 +122,7 @@ class FraudReplayBatchServiceTest {
         );
         FraudReplayBatchItemEntity item = new FraudReplayBatchItemEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             batchId,
             0,
             "PAY-100",
@@ -129,8 +137,8 @@ class FraudReplayBatchServiceTest {
             Instant.parse("2026-07-17T10:15:30Z")
         );
 
-        when(fraudReplayBatchRepository.findById(batchId)).thenReturn(java.util.Optional.of(batch));
-        when(fraudReplayBatchItemRepository.findAllByBatchIdOrderByScenarioIndexAsc(batchId)).thenReturn(List.of(item));
+        when(fraudReplayBatchRepository.findByOrganizationIdAndId(ORGANIZATION_ID, batchId)).thenReturn(java.util.Optional.of(batch));
+        when(fraudReplayBatchItemRepository.findAllByOrganizationIdAndBatchIdOrderByScenarioIndexAsc(ORGANIZATION_ID, batchId)).thenReturn(List.of(item));
 
         FraudReplayBatchResponse response = fraudReplayBatchService.findById(batchId);
 

@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentStateTransitionRepository extends JpaRepository<PaymentStateTransitionEntity, UUID> {
 
-    List<PaymentStateTransitionEntity> findAllByPaymentIdOrderByCreatedAtAsc(String paymentId);
+    List<PaymentStateTransitionEntity> findAllByOrganizationIdAndPaymentIdOrderByCreatedAtAsc(UUID organizationId, String paymentId);
 }

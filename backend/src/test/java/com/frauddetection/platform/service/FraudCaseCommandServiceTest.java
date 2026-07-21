@@ -3,6 +3,7 @@ package com.frauddetection.platform.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +40,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FraudCaseCommandServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     @Mock
     private FraudReviewCaseRepository fraudReviewCaseRepository;
 
@@ -54,17 +57,22 @@ class FraudCaseCommandServiceTest {
     @Mock
     private FraudNotificationHookService fraudNotificationHookService;
 
+    @Mock
+    private CurrentTenantService currentTenantService;
+
     private FraudCaseCommandService fraudCaseCommandService;
 
     @BeforeEach
     void setUp() {
+        when(currentTenantService.organizationId()).thenReturn(ORGANIZATION_ID);
         fraudCaseCommandService = new FraudCaseCommandService(
             fraudReviewCaseRepository,
             fraudCaseTimelineEntryRepository,
             fraudCaseQueryService,
             paymentLifecycleService,
             new PlatformMetricsService(new SimpleMeterRegistry()),
-            fraudNotificationHookService
+            fraudNotificationHookService,
+            currentTenantService
         );
     }
 
@@ -72,7 +80,7 @@ class FraudCaseCommandServiceTest {
     void assignsOpenCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.OPEN);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(caseId, ReviewCaseStatus.OPEN, "analyst.one", null, null));
@@ -91,7 +99,7 @@ class FraudCaseCommandServiceTest {
     void escalatesCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.OPEN);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(caseId, ReviewCaseStatus.ESCALATED, null, null, null));
@@ -110,10 +118,10 @@ class FraudCaseCommandServiceTest {
     void resolvesCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.ESCALATED, RiskDecision.HOLD);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any()))
+        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any(), any()))
             .thenReturn(buildPaymentRecord(PaymentStatus.APPROVED));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(
             caseId,
@@ -135,7 +143,7 @@ class FraudCaseCommandServiceTest {
         assertThat(response.status()).isEqualTo(ReviewCaseStatus.RESOLVED);
         assertThat(response.resolutionSummary()).contains("genuine");
         assertThat(response.resolutionOutcome()).isEqualTo(CaseResolutionOutcome.RELEASE_PAYMENT);
-        verify(paymentLifecycleService).transitionFromCaseResolution(any(), any(), any(), any(), any());
+        verify(paymentLifecycleService).transitionFromCaseResolution(eq(ORGANIZATION_ID), any(), any(), any(), any(), any());
         verify(fraudCaseTimelineEntryRepository).save(any(FraudCaseTimelineEntryEntity.class));
     }
 
@@ -143,10 +151,10 @@ class FraudCaseCommandServiceTest {
     void releasesPaymentViaDedicatedCommand() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.OPEN, RiskDecision.HOLD);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any()))
+        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any(), any()))
             .thenReturn(buildPaymentRecord(PaymentStatus.APPROVED));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(
             caseId,
@@ -163,7 +171,7 @@ class FraudCaseCommandServiceTest {
         );
 
         assertThat(response.resolutionOutcome()).isEqualTo(CaseResolutionOutcome.RELEASE_PAYMENT);
-        verify(paymentLifecycleService).transitionFromCaseResolution(any(), any(), any(), any(), any());
+        verify(paymentLifecycleService).transitionFromCaseResolution(eq(ORGANIZATION_ID), any(), any(), any(), any(), any());
         verify(fraudNotificationHookService).publishResolutionNotification(any(), any(), any(), any());
     }
 
@@ -171,10 +179,10 @@ class FraudCaseCommandServiceTest {
     void confirmsDeclineViaDedicatedCommand() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.OPEN, RiskDecision.DECLINE);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any()))
+        when(paymentLifecycleService.transitionFromCaseResolution(any(), any(), any(), any(), any(), any()))
             .thenReturn(buildPaymentRecord(PaymentStatus.DECLINED));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(
             caseId,
@@ -198,7 +206,7 @@ class FraudCaseCommandServiceTest {
     void rejectsEscalationOfResolvedCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.RESOLVED);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> fraudCaseCommandService.escalate(
             caseId,
@@ -213,7 +221,7 @@ class FraudCaseCommandServiceTest {
     void addsNoteToResolvedCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.RESOLVED);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
         when(fraudCaseTimelineEntryRepository.save(any(FraudCaseTimelineEntryEntity.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(fraudCaseQueryService.findById(caseId)).thenReturn(buildResponse(
@@ -238,7 +246,7 @@ class FraudCaseCommandServiceTest {
     void rejectsReleaseOutcomeForDeclinedCase() {
         UUID caseId = UUID.randomUUID();
         FraudReviewCaseEntity entity = buildCase(caseId, ReviewCaseStatus.OPEN, RiskDecision.DECLINE);
-        when(fraudReviewCaseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(fraudReviewCaseRepository.findByOrganizationIdAndId(ORGANIZATION_ID, caseId)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> fraudCaseCommandService.resolve(
             caseId,
@@ -249,7 +257,7 @@ class FraudCaseCommandServiceTest {
             "analyst.one"
         )).isInstanceOf(FraudCaseActionNotAllowedException.class);
 
-        verify(paymentLifecycleService, never()).transitionFromCaseResolution(any(), any(), any(), any(), any());
+        verify(paymentLifecycleService, never()).transitionFromCaseResolution(any(), any(), any(), any(), any(), any());
     }
 
     private FraudReviewCaseEntity buildCase(UUID caseId, ReviewCaseStatus status) {
@@ -259,6 +267,7 @@ class FraudCaseCommandServiceTest {
     private FraudReviewCaseEntity buildCase(UUID caseId, ReviewCaseStatus status, RiskDecision decision) {
         return new FraudReviewCaseEntity(
             caseId,
+            ORGANIZATION_ID,
             UUID.randomUUID(),
             "PAY-1",
             "CUST-1",

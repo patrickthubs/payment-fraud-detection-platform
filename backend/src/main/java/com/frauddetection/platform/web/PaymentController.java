@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.frauddetection.platform.service.AuthenticatedOperatorService;
+import com.frauddetection.platform.service.CurrentTenantService;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -30,17 +31,20 @@ public class PaymentController {
     private final PaymentQueryService paymentQueryService;
     private final PaymentLifecycleService paymentLifecycleService;
     private final AuthenticatedOperatorService authenticatedOperatorService;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
 
     public PaymentController(
         PaymentQueryService paymentQueryService,
         PaymentLifecycleService paymentLifecycleService,
         AuthenticatedOperatorService authenticatedOperatorService,
+        CurrentTenantService currentTenantService,
         Clock clock
     ) {
         this.paymentQueryService = paymentQueryService;
         this.paymentLifecycleService = paymentLifecycleService;
         this.authenticatedOperatorService = authenticatedOperatorService;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
     }
 
@@ -72,6 +76,7 @@ public class PaymentController {
     ) {
         Instant now = Instant.now(clock);
         paymentLifecycleService.completeChallenge(
+            currentTenantService.organizationId(),
             paymentId,
             authenticatedOperatorService.resolveOperator(authentication),
             request,

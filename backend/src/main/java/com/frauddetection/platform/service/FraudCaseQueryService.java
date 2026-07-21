@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,19 @@ public class FraudCaseQueryService {
 
     private final FraudReviewCaseRepository fraudReviewCaseRepository;
     private final FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository;
+    private final CurrentTenantService currentTenantService;
     private final Clock clock;
 
+    @Autowired
     public FraudCaseQueryService(
         FraudReviewCaseRepository fraudReviewCaseRepository,
         FraudCaseTimelineEntryRepository fraudCaseTimelineEntryRepository,
+        CurrentTenantService currentTenantService,
         Clock clock
     ) {
         this.fraudReviewCaseRepository = fraudReviewCaseRepository;
         this.fraudCaseTimelineEntryRepository = fraudCaseTimelineEntryRepository;
+        this.currentTenantService = currentTenantService;
         this.clock = clock;
     }
 
@@ -94,10 +99,11 @@ public class FraudCaseQueryService {
 
     @Transactional(readOnly = true)
     public FraudCaseResponse findById(UUID caseId) {
-        FraudReviewCaseEntity entity = fraudReviewCaseRepository.findById(caseId)
+        UUID organizationId = currentTenantService.organizationId();
+        FraudReviewCaseEntity entity = fraudReviewCaseRepository.findByOrganizationIdAndId(organizationId, caseId)
             .orElseThrow(() -> new FraudCaseNotFoundException(caseId));
         List<FraudCaseTimelineEntryResponse> timelineEntries = fraudCaseTimelineEntryRepository
-            .findAllByCaseIdOrderByCreatedAtAsc(caseId)
+            .findAllByOrganizationIdAndCaseIdOrderByCreatedAtAsc(organizationId, caseId)
             .stream()
             .map(this::toTimelineResponse)
             .toList();
@@ -108,21 +114,21 @@ public class FraudCaseQueryService {
         int boundedPage = Math.max(0, page);
         int boundedSize = Math.min(Math.max(1, size), 200);
         return fraudReviewCaseRepository.findAll(
-            FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
+            FraudReviewCaseSpecifications.forCriteria(currentTenantService.organizationId(), criteria, breachThreshold()),
             PageRequest.of(boundedPage, boundedSize, Sort.by(Sort.Direction.DESC, "createdAt"))
         ).getContent();
     }
 
     private List<FraudReviewCaseEntity> findMatchingCases(FraudCaseFilterCriteria criteria) {
         return fraudReviewCaseRepository.findAll(
-            FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
+            FraudReviewCaseSpecifications.forCriteria(currentTenantService.organizationId(), criteria, breachThreshold()),
             Sort.by(Sort.Direction.DESC, "createdAt")
         );
     }
 
     private List<FraudReviewCaseEntity> findMatchingCasesForExport(FraudCaseFilterCriteria criteria, int limit) {
         return fraudReviewCaseRepository.findAll(
-            FraudReviewCaseSpecifications.forCriteria(criteria, breachThreshold()),
+            FraudReviewCaseSpecifications.forCriteria(currentTenantService.organizationId(), criteria, breachThreshold()),
             PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"))
         ).getContent();
     }

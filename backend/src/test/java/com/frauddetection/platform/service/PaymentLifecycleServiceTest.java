@@ -30,6 +30,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class PaymentLifecycleServiceTest {
 
+    private static final UUID ORGANIZATION_ID = UUID.fromString("f2000000-0000-0000-0000-000000000001");
+
     @Mock
     private PaymentRecordRepository paymentRecordRepository;
 
@@ -59,7 +61,7 @@ class PaymentLifecycleServiceTest {
     void createsDeclinedPaymentForDeclineDecision() {
         PaymentRiskAssessmentRequest request = request("PAY-9001", "CUST-9");
         FraudAssessmentRecordEntity assessmentRecord = assessment("PAY-9001", "CUST-9", RiskDecision.DECLINE);
-        when(paymentRecordRepository.findByPaymentId("PAY-9001")).thenReturn(Optional.empty());
+        when(paymentRecordRepository.findByOrganizationIdAndPaymentId(ORGANIZATION_ID, "PAY-9001")).thenReturn(Optional.empty());
 
         PaymentRecordEntity result = paymentLifecycleService.recordAssessmentOutcome(
             request,
@@ -76,7 +78,7 @@ class PaymentLifecycleServiceTest {
     void mapsHoldDecisionToHeldPaymentStatus() {
         PaymentRiskAssessmentRequest request = request("PAY-9002", "CUST-10");
         FraudAssessmentRecordEntity assessmentRecord = assessment("PAY-9002", "CUST-10", RiskDecision.HOLD);
-        when(paymentRecordRepository.findByPaymentId("PAY-9002")).thenReturn(Optional.empty());
+        when(paymentRecordRepository.findByOrganizationIdAndPaymentId(ORGANIZATION_ID, "PAY-9002")).thenReturn(Optional.empty());
 
         PaymentRecordEntity result = paymentLifecycleService.recordAssessmentOutcome(
             request,
@@ -91,6 +93,7 @@ class PaymentLifecycleServiceTest {
     void transitionsHeldPaymentToApprovedAfterCaseResolution() {
         PaymentRecordEntity paymentRecord = new PaymentRecordEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             "PAY-9003",
             "CUST-11",
             BigDecimal.valueOf(9100),
@@ -109,9 +112,10 @@ class PaymentLifecycleServiceTest {
             Instant.parse("2026-07-16T12:00:00Z"),
             Instant.parse("2026-07-16T12:00:00Z")
         );
-        when(paymentRecordRepository.findByPaymentId("PAY-9003")).thenReturn(Optional.of(paymentRecord));
+        when(paymentRecordRepository.findByOrganizationIdAndPaymentId(ORGANIZATION_ID, "PAY-9003")).thenReturn(Optional.of(paymentRecord));
 
         PaymentRecordEntity result = paymentLifecycleService.transitionFromCaseResolution(
+            ORGANIZATION_ID,
             "PAY-9003",
             PaymentStatus.APPROVED,
             "Analyst released the payment after customer verification.",
@@ -129,6 +133,7 @@ class PaymentLifecycleServiceTest {
         UUID assessmentId = UUID.randomUUID();
         PaymentRecordEntity paymentRecord = new PaymentRecordEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             "PAY-9004",
             "CUST-12",
             BigDecimal.valueOf(5100),
@@ -147,9 +152,10 @@ class PaymentLifecycleServiceTest {
             Instant.parse("2026-07-16T12:00:00Z"),
             Instant.parse("2026-07-16T12:00:00Z")
         );
-        when(paymentRecordRepository.findByPaymentId("PAY-9004")).thenReturn(Optional.of(paymentRecord));
+        when(paymentRecordRepository.findByOrganizationIdAndPaymentId(ORGANIZATION_ID, "PAY-9004")).thenReturn(Optional.of(paymentRecord));
 
         PaymentRecordEntity result = paymentLifecycleService.completeChallenge(
+            ORGANIZATION_ID,
             "PAY-9004",
             "analyst.one",
             new CompletePaymentChallengeRequest(ChallengeOutcome.PASSED, "Customer completed OTP challenge."),
@@ -186,6 +192,7 @@ class PaymentLifecycleServiceTest {
     private FraudAssessmentRecordEntity assessment(String paymentId, String customerId, RiskDecision decision) {
         return new FraudAssessmentRecordEntity(
             UUID.randomUUID(),
+            ORGANIZATION_ID,
             paymentId,
             customerId,
             88,
@@ -193,6 +200,13 @@ class PaymentLifecycleServiceTest {
             VelocitySource.REDIS,
             "Fraud decision summary",
             "[HIGH_VELOCITY]",
+            null,
+            0,
+            "rules-v1",
+            "{}",
+            "[]",
+            null,
+            null,
             Instant.parse("2026-07-16T12:00:00Z")
         );
     }

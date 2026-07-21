@@ -17,6 +17,9 @@ public class FraudCaseTimelineEntryEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "case_id", nullable = false)
     private UUID caseId;
 
@@ -44,7 +47,28 @@ public class FraudCaseTimelineEntryEntity {
         String detail,
         Instant createdAt
     ) {
+        this(
+            id,
+            UUID.fromString("f2000000-0000-0000-0000-000000000001"),
+            caseId,
+            actionType,
+            actor,
+            detail,
+            createdAt
+        );
+    }
+
+    public FraudCaseTimelineEntryEntity(
+        UUID id,
+        UUID organizationId,
+        UUID caseId,
+        FraudCaseActionType actionType,
+        String actor,
+        String detail,
+        Instant createdAt
+    ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.caseId = caseId;
         this.actionType = actionType;
         this.actor = actor;
@@ -54,6 +78,10 @@ public class FraudCaseTimelineEntryEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public UUID getCaseId() {

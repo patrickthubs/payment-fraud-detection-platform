@@ -10,15 +10,22 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface FraudScoringProfileRepository extends JpaRepository<FraudScoringProfileEntity, UUID> {
 
-    Optional<FraudScoringProfileEntity> findByActiveTrue();
+    Optional<FraudScoringProfileEntity> findByOrganizationIdAndActiveTrue(UUID organizationId);
 
-    List<FraudScoringProfileEntity> findAllByOrderByVersionNumberDesc();
+    List<FraudScoringProfileEntity> findAllByOrganizationIdOrderByVersionNumberDesc(UUID organizationId);
 
-    Optional<FraudScoringProfileEntity> findTopByOrderByVersionNumberDesc();
+    Optional<FraudScoringProfileEntity> findTopByOrganizationIdOrderByVersionNumberDesc(UUID organizationId);
 
-    boolean existsByProfileNameIgnoreCase(String profileName);
+    boolean existsByOrganizationIdAndProfileNameIgnoreCase(UUID organizationId, String profileName);
 
     @Modifying
-    @Query("update FraudScoringProfileEntity profile set profile.active = false where profile.active = true and profile.id <> :profileId")
-    void deactivateOtherProfiles(UUID profileId);
+    @Query("""
+        update FraudScoringProfileEntity profile
+        set profile.active = false
+        where profile.organizationId = :organizationId
+          and profile.active = true
+          and profile.id <> :profileId
+        """)
+    void deactivateOtherProfiles(UUID organizationId, UUID profileId);
+
 }

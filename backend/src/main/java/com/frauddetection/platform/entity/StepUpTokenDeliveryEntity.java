@@ -18,6 +18,9 @@ public class StepUpTokenDeliveryEntity {
     @Id
     private UUID id;
 
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "operator_id", nullable = false)
     private UUID operatorId;
 
@@ -73,6 +76,7 @@ public class StepUpTokenDeliveryEntity {
 
     public StepUpTokenDeliveryEntity(
         UUID id,
+        UUID organizationId,
         UUID operatorId,
         String operatorUsername,
         StepUpDeliveryChannel deliveryChannel,
@@ -91,6 +95,7 @@ public class StepUpTokenDeliveryEntity {
         Instant revokedAt
     ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.operatorId = operatorId;
         this.operatorUsername = operatorUsername;
         this.deliveryChannel = deliveryChannel;
@@ -111,6 +116,10 @@ public class StepUpTokenDeliveryEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     public UUID getOperatorId() {
